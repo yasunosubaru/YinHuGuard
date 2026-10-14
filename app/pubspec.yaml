@@ -1,0 +1,23 @@
+name: yinhuguard_app
+description: YinHuGuard 的 Flutter 界面。判据与报告逻辑全在 yinhuguard_core 包里。
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  yinhuguard_core:
+    path: ../
+  # 只为 Utf16 / IntPtr 等 NativeType 与 calloc，提权与 FFI 绑定用得到。
+  ffi: ^2.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
