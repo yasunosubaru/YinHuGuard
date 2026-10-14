@@ -154,7 +154,7 @@ spec 隐含、但任何任务的测试都不会自然覆盖的五类输入／失
   cmake --build engine/build --config Release
   engine\build\Release\test_criteria.exe
   ```
-  Expected: 编译失败，`yh_criteria.h` 找不到（尚未创建）。
+  Expected: **配置阶段**即失败——`engine/CMakeLists.txt` 尚不存在（它在 Step 5 创建）。这是一个退化的 RED：验证的是「构建系统还没搭好」，不是「判据函数未实现」。真正的函数级 RED 在 Step 6 之后首次成功链接时由 `test_criteria.cpp` 里的断言承担。
 
 - [ ] **Step 3: 创建 `engine/include/yh_criteria.h`**，照 Step 1 的 Interfaces 块逐字声明七个函数，全部 `namespace yh`、`std::string`/`std::vector<std::string>` 参数显式带类型。
 
@@ -170,11 +170,13 @@ spec 隐含、但任何任务的测试都不会自然覆盖的五类输入／失
   - `path_in_prefixes`：先 `strip_quotes_and_args`，再大小写不敏感比较，且要求第 N 位是 `\` 或 `/`，避免 `System32X` 误配。
   - `is_hard_allowlisted`：大小写不敏感全等比较，不做子串匹配。
 
-- [ ] **Step 5: 创建 `engine/src/config.cpp` 与 `engine/include/yh_engine.h` 的最小骨架**
+- [ ] **Step 5: 创建 `engine/CMakeLists.txt`、`engine/src/config.cpp`，以及 `engine/include/yh_engine.h` 的最小骨架**
 
-  `yh_engine.h` 先只声明 Task 1 用得到的部分：`namespace yh { struct Config; std::unique_ptr<Config> load_config(const std::string& path, std::string* error); }`。
+  **`engine/CMakeLists.txt`** 必须做到：设 C++17、项目名 `yinhuguard_engine`、产出共享库 `yinhuguard_engine`、导出符号不被剔除（Linux 上是 `WINDOWS_EXPORT_ALL_SYMBOLS` 之类的等效设置，Windows 上默认全导出）、`include/` 为 PUBLIC include 目录、把 `src/*.cpp` 全部纳入、注册 `test_criteria` 可执行目标并链上 `src/criteria.cpp` 与 `src/config.cpp`。目标平台 x64。
 
-  `load_config` 实现 spec §8 的校验规则。此处**不做 JSON 解析库选型**，改用最轻量方案：配置是扁平字符串数组，`rules.json` 用固定顺序的数组结构，逐个读入并校验「每项必须是字符串」。校验失败时 `*error` 写入**具体是哪个键不合法**，返回 `nullptr`。
+  **`yh_engine.h`** 先只声明 Task 1 用得到的部分：`namespace yh { struct Config; std::unique_ptr<Config> load_config(const std::string& path, std::string* error); }`。
+
+  **`load_config`** 实现 spec §8 的校验规则。此处**不做 JSON 解析库选型**，改用最轻量方案：配置是扁平字符串数组，`rules.json` 用固定顺序的数组结构，逐个读入并校验「每项必须是字符串」。校验失败时 `*error` 写入**具体是哪个键不合法**，返回 `nullptr`。
 
 - [ ] **Step 6: 运行测试，确认通过**
 
@@ -543,9 +545,10 @@ spec 隐含、但任何任务的测试都不会自然覆盖的五类输入／失
   **本任务的核心测试是结构体布局断言，不是运行 dll。** 用 Dart `Struct` 的 `sizeOf` 与 `matchAsList` 把 spec §3.1 的布局钉死：
 
   ```dart
+  // x64 布局：3 个 char* (24) + 5 个 int32 (20) = 44，
+  // double 需 8 字节对齐 -> 补齐到 48，double 占 48..55 -> 合计 56
   test('YhFinding 布局与 spec §3.1 一致', () {
-    // 8 个指针/int32 混合 + 1 个 double，逐字段偏移断言
-    expect(YhFinding.sizeOf(), 8 * 8 + 8); // x64: 5 指针(40) + 6 int32(24) 补齐 + double
+    expect(YhFinding.sizeOf(), 56);
   });
 
   test('YhSelfCheck 布局为 6 个 int32', () {
@@ -556,7 +559,7 @@ spec 隐含、但任何任务的测试都不会自然覆盖的五类输入／失
     expect(YhFindingList.sizeOf(), 8 * 2);
   });
   ```
-  写这三个断言时**先从 C++ 头文件数出真实字段与偏移**，再把数值写进 Dart 测试。若实测与上式不符，以实测为准并**回头修 spec**，不要改测试迁就实现。
+  **spec §3.1 的 `YhFinding` 是 3 个指针（locator、display_name、criteria）+ 5 个 int32 + 1 个 double，不是 5 个指针** —— 早期版本有 `rule_id` 与 `evidence_url`，spec v2 收敛到原 bat 三段后已删除。若写这三个断言时数出的实测值与上式不符，**以 C++ 头文件为准并回头修 spec，不要改测试迁就实现**。结构体布局错位不会编译报错，只会在运行时读出垃圾，这是本项目最危险的静默失效点。
 
 - [ ] **Step 2: 运行，确认失败**
 
