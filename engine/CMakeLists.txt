@@ -2,6 +2,15 @@
 #
 # 引擎共享库 + 判据单元测试。只支持 Windows x64：项目全程走 Win32 x64，
 # 任何别的目标架构都在配置阶段直接拒绝，不留到链接或运行期才炸。
+#
+# 首次配置（生成器必须显式指定 —— 本机默认是 Ninja，Ninja 不接受 -A x64，
+# 裸跑会报「Generator Ninja does not support platform specification」）：
+#
+#   cmake -S engine -B engine/build -G "Visual Studio 18 2026" -A x64
+#   cmake --build engine/build --config Release
+#   ctest --test-dir engine/build -C Release --output-on-failure
+#
+# /utf-8 只加编译期：link.exe 不认这个旗标，加了会每个链接都刷 LNK4044。
 
 cmake_minimum_required(VERSION 3.20)
 project(yinhuguard_engine LANGUAGES CXX)
@@ -56,5 +65,16 @@ add_executable(test_criteria
 )
 target_include_directories(test_criteria PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
+# test_config 覆盖 load_config：手写的 JSON 解析 + 校验是本项目唯一一块
+# 出错时运行期完全静默的逻辑（配置被拒绝只是不报，解析错则读出错值）。
+# 它必须链接 criteria.cpp —— 用例里验硬白名单下限要调 is_hard_allowlisted。
+add_executable(test_config
+  tests/test_config.cpp
+  src/config.cpp
+  src/criteria.cpp
+)
+target_include_directories(test_config PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+
 enable_testing()
 add_test(NAME test_criteria COMMAND test_criteria)
+add_test(NAME test_config COMMAND test_config)

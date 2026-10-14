@@ -12,6 +12,11 @@
 //   * 非法 UTF-8 直接拒绝，绝不返回带替换字符的路径——那会让报告里的
 //     locator 变成看似正常的乱码。
 //   * 文件开头的 UTF-8 BOM 跳过（Windows 编辑器默认会写）。
+//
+// 另外两条来自 spec 的硬约束，在此落地而不是交给调用方自觉：
+//   * service_interpreter_keywords 为空即拒绝（spec §8）——否则整条判据静默失效。
+//   * 硬白名单下限 swprv / vmservice / MicrosoftSoftware2ShadowCop4yProvider 与配置
+//     取并集（spec §2 硬约束 2）——配置改不动这三个名字。
 
 #include "yh_engine.h"
 
@@ -36,6 +41,19 @@ namespace {
 const int kSupportedSchemaVersion = 1;
 const size_t kMinAllowPrefixes = 2;  // spec §8：service_path_allow_prefixes 至少两项
 
+// spec §8：service_interpreter_keywords 至少一项。
+// 空数组合法的话，整条 service_interpreter 判据会静默失效。
+const size_t kMinInterpreterKeywords = 1;
+
+// 硬白名单下限（spec §2 硬约束 2）：这三个名字恒在名单里，与 rules.json 提供的
+// 同名项取并集。配置改不动它们——把 hard_allowlist 清空，swprv 依然不可报。
+// vafdska / MiniFilterDrv 不在其中：情报未找到任何银狐出处，不作 IOC（spec §4.5）。
+const char* const kHardAllowlistFloor[] = {
+    "swprv",
+    "vmservice",
+    "MicrosoftSoftware2ShadowCop4yProvider",
+};
+
 // 与 criteria.cpp 同名的判定，各自文件内私有，就地复制一行比抽公共头更划算
 bool IsSpace(char c) {
   return c == ' ' || c == '\t' || c == '\r' || c == '\n';
@@ -44,6 +62,42 @@ bool IsSpace(char c) {
 void SetError(std::string* error, const std::string& message) {
   if (error) {
     *error = message;
+  }
+}
+
+// 大小写不敏感全等（ASCII），与 criteria.cpp 的 ToLowerAscii 同一套规则
+bool EqualsIgnoreCaseAscii(const std::string& left, const char* right) {
+  size_t i = 0;
+  for (; i < left.size(); ++i) {
+    if (right[i] == '\0') {
+      return false;
+    }
+    const char a = (left[i] >= 'A' && left[i] <= 'Z')
+                       ? static_cast<char>(left[i] - 'A' + 'a')
+                       : left[i];
+    const char b = (right[i] >= 'A' && right[i] <= 'Z')
+                       ? static_cast<char>(right[i] - 'A' + 'a')
+                       : right[i];
+    if (a != b) {
+      return false;
+    }
+  }
+  return right[i] == '\0';
+}
+
+// 把硬白名单下限并进配置给的名单（大小写不敏感去重）。就地改写 out。
+void ApplyHardAllowlistFloor(std::vector<std::string>* out) {
+  for (const char* floor_entry : kHardAllowlistFloor) {
+    bool present = false;
+    for (const std::string& entry : *out) {
+      if (EqualsIgnoreCaseAscii(entry, floor_entry)) {
+        present = true;
+        break;
+      }
+    }
+    if (!present) {
+      out->push_back(floor_entry);
+    }
   }
 }
 
@@ -548,6 +602,14 @@ std::unique_ptr<Config> load_config(const std::string& path, std::string* error)
                         " 项，spec §8 要求至少 " + std::to_string(kMinAllowPrefixes) + " 项");
     return nullptr;
   }
+  if (config->service_interpreter_keywords.size() < kMinInterpreterKeywords) {
+    SetError(error, "键 \"service_interpreter_keywords\" 是空数组，spec §8 要求至少 " +
+                        std::to_string(kMinInterpreterKeywords) +
+                        " 项——清空它会让 service_interpreter 判据整体失效");
+    return nullptr;
+  }
+  // 硬白名单下限在此并入，之后的调用方只认 config->hard_allowlist 一份名单
+  ApplyHardAllowlistFloor(&config->hard_allowlist);
   return config;
 }
 

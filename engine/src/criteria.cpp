@@ -98,8 +98,61 @@ bool ExpandEnvironmentStrings(const std::wstring& in, std::wstring* out) {
   return false;
 }
 
-// 一个关键字按空白切成若干词，逐词在目标串里按顺序查找，全部命中才算命中。
-// `cmd /c` 因此表示「cmd 在前、其后有 /c」，裸 `cmd.exe` 不算命中——
+// 词元的主干：去掉首尾引号 → 取最后一段路径分隔符之后的部分 → 取第一个 '.' 之前。
+//   `C:\a\cmd.exe`     → `cmd`
+//   `"C:\a\cmd.exe"`   → `cmd`   （服务 PathName 常带引号）
+//   `mycmd.txt`        → `mycmd` （所以 mycmd.txt 不会命中关键字 cmd）
+std::string StemOfToken(const std::string& token) {
+  std::string stem = token;
+  if (!stem.empty() && stem.front() == '"') {
+    stem.erase(stem.begin());
+  }
+  if (!stem.empty() && stem.back() == '"') {
+    stem.pop_back();
+  }
+  const size_t separator = stem.find_last_of("\\/");
+  if (separator != std::string::npos) {
+    stem = stem.substr(separator + 1);
+  }
+  const size_t dot = stem.find('.');
+  if (dot != std::string::npos) {
+    stem = stem.substr(0, dot);
+  }
+  return stem;
+}
+
+// 以 '/' 开头的关键字词（`/c`）必须整词元相等，否则 `/cleanup` 会命中 `/c`；
+// 其余词必须等于某个词元的主干，否则 `mycmd.txt` 会命中 `cmd`。
+bool WordMatchesToken(const std::string& word, const std::string& token) {
+  if (!word.empty() && word.front() == '/') {
+    return token == word;
+  }
+  return StemOfToken(token) == word;
+}
+
+// 在 lowered_image 的词元里从 start_offset 起找 word；命中时把 *next_offset 设到该词元
+// 之后，使多词关键字保持先后顺序（`/c` 在前、`cmd.exe` 在后不算命中 `cmd /c`）。
+// 空白集合与上面 IsSpace() 必须一致。
+bool FindWordFrom(const std::string& lowered_image, const std::string& word,
+                  size_t start_offset, size_t* next_offset) {
+  size_t i = start_offset;
+  while (i < lowered_image.size()) {
+    const size_t end = lowered_image.find_first_of(" \t\r\n", i);
+    const size_t stop = (end == std::string::npos) ? lowered_image.size() : end;
+    if (WordMatchesToken(word, lowered_image.substr(i, stop - i))) {
+      *next_offset = (end == std::string::npos) ? stop : end + 1;
+      return true;
+    }
+    if (end == std::string::npos) {
+      break;
+    }
+    i = end + 1;
+  }
+  return false;
+}
+
+// 一个关键字按空白切成若干词，逐词在目标串的词元里按顺序查找，全部命中才算命中。
+// `cmd /c` 因此表示「cmd 这个可执行名在前、其后有独立的 /c 词元」，裸 `cmd.exe` 不算——
 // spec §4.3 的 service_interpreter 要的就是这个，而上游 findstr 会误命中。
 bool KeywordMatches(const std::string& lowered_image, const std::string& keyword) {
   size_t scanned = 0;
@@ -116,12 +169,14 @@ bool KeywordMatches(const std::string& lowered_image, const std::string& keyword
     while (scanned < keyword.size() && !IsSpace(keyword[scanned])) {
       ++scanned;
     }
-    const std::string word = keyword.substr(word_begin, scanned - word_begin);
-    const size_t found = lowered_image.find(word, search_from);
-    if (found == std::string::npos) {
+    // 关键字来自 rules.json，用户完全可能写成 "PowerShell" 或 "CMD /C"。
+    // 不转小写会让整条 service_interpreter 判据静默失效，而头文件承诺的是大小写不敏感。
+    const std::string word = ToLowerAscii(keyword.substr(word_begin, scanned - word_begin));
+    size_t next_offset = 0;
+    if (!FindWordFrom(lowered_image, word, search_from, &next_offset)) {
       return false;
     }
-    search_from = found + word.size();
+    search_from = next_offset;
     ++matched_words;
   }
   // 空串或纯空白的关键字不构成命中条件——配置被清空时绝不能变成「全部命中」

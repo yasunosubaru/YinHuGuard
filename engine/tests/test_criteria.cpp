@@ -80,6 +80,21 @@ void test_matches_interpreter() {
   assert(!matches_interpreter("C:\\Windows\\System32\\cmd.exe /c", {}));
   // 表里混入空串同样不构成命中条件
   assert(!matches_interpreter("C:\\Windows\\System32\\cmd.exe /c", {""}));
+
+  // 关键字大小写不敏感：rules.json 是用户手编的，写成 "PowerShell" 或 "CMD /C"
+  // 不能让整条 service_interpreter 判据静默失效
+  assert(matches_interpreter(
+      "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", {"PowerShell"}));
+  assert(matches_interpreter("C:\\Windows\\System32\\cmd.exe /c foo.bat", {"CMD /C"}));
+  assert(matches_interpreter("C:\\Windows\\System32\\cmd.exe /c foo.bat", {"cmd /C"}));
+  assert(matches_interpreter("C:\\Windows\\mshta.exe http://x", {"MSHTA"}));
+
+  // 关键字词必须落在词元上，而不是更长的子串里
+  assert(!matches_interpreter("C:\\x\\mycmd.txt /c", kw));           // cmd 只是 mycmd 的一部分
+  assert(!matches_interpreter("C:\\Windows\\System32\\cmd.exe /cleanup", kw));  // /c 是 /cleanup 的前缀
+  assert(!matches_interpreter("C:\\x\\powershellnotes.txt", kw));     // powershell 只是长文件名的前缀
+  // 但引号带参数的正常形态仍然命中（主干计算要剥掉引号）
+  assert(matches_interpreter("\"C:\\a\\cmd.exe\" /c x.bat", kw));
 }
 
 // Review Focus #5：Run 值数据回退链
