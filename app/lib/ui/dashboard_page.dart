@@ -170,7 +170,9 @@ class _DashboardPageState extends State<DashboardPage> {
     }
     try {
       final Directory dir = _reportDir();
-      final String stamp = DateTime.now()
+      // 与日志文件名统一用 UTC：两个文件并排放在同一个目录里，
+      // 一个本地时一个 UTC 会让人以为它们是两次不同的扫描。
+      final String stamp = DateTime.now().toUtc()
           .toIso8601String()
           .split('.')
           .first

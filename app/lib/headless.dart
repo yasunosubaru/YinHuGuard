@@ -71,7 +71,7 @@ Future<int> runHeadlessScan(AppArgs args, String? jsonOutPath) async {
 
   final Directory outDir = _outputDir(jsonOutPath);
   final String stamp =
-      DateTime.now().toIso8601String().split('.').first.replaceAll(':', '-');
+      DateTime.now().toUtc().toIso8601String().split('.').first.replaceAll(':', '-');
   final String jsonPath = jsonOutPath ??
       '${outDir.path}${Platform.pathSeparator}report-$stamp.json';
 
