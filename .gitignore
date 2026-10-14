@@ -8,3 +8,8 @@ build/
 .flutter-plugins
 .flutter-plugins-dependencies
 
+
+# 打包产物
+dist/
+app/build/
+
