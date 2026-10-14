@@ -1,3 +1,10 @@
 # 构建产物不入库。plan 的提交指令是 `git add engine/`，若不排除这里，
 # 整棵 build/（中间 .obj、.dll、.exe）会跟着进仓库。
 engine/build/
+# Dart/Flutter 构建产物
+.dart_tool/
+build/
+*.iml
+.flutter-plugins
+.flutter-plugins-dependencies
+

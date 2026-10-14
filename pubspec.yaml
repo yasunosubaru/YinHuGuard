@@ -1,0 +1,9 @@
+name: yinhuguard_core
+description: YinHuGuard 只读排查工具的判据层。纯 Dart，不依赖 Flutter —— 这样判据逻辑的单元测试不需要 Flutter SDK 就能跑。
+publish_to: none
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dev_dependencies:
+  test: ^1.25.0
