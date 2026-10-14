@@ -18,58 +18,19 @@
 #include <vector>
 
 #include "yh_criteria.h"
+#include "internal.h"
 
 namespace yh {
 namespace {
 
-// 只转 ASCII 大写字母。中文等非 ASCII 部分原样保留：路径两侧走同一条转换，
-// 不会因 Unicode 大小写规则不同而错配，也就不需要完整的 Unicode 大小写表。
-std::string ToLowerAscii(const std::string& s) {
-  std::string out = s;
-  for (char& c : out) {
-    if (c >= 'A' && c <= 'Z') {
-      c = static_cast<char>(c - 'A' + 'a');
-    }
-  }
-  return out;
-}
-
-bool IsSpace(char c) {
-  return c == ' ' || c == '\t' || c == '\r' || c == '\n';
-}
-
-// 两个方向的转换都用 MB_ERR_INVALID_CHARS / 严格模式：非法 UTF-8 一律转换失败，
-// 绝不返回带替换字符的路径——那会让 locator 变成看似正常的乱码。
-std::wstring Utf8ToWide(const std::string& s) {
-  if (s.empty()) {
-    return std::wstring();
-  }
-  const int needed = ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data(),
-                                           static_cast<int>(s.size()), nullptr, 0);
-  if (needed <= 0) {
-    return std::wstring();  // 非法 UTF-8
-  }
-  std::wstring wide(static_cast<size_t>(needed), L'\0');
-  ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data(),
-                        static_cast<int>(s.size()), &wide[0], needed);
-  return wide;
-}
-
-std::string WideToUtf8(const std::wstring& wide) {
-  if (wide.empty()) {
-    return std::string();
-  }
-  const int needed = ::WideCharToMultiByte(CP_UTF8, 0, wide.data(),
-                                          static_cast<int>(wide.size()), nullptr, 0,
-                                          nullptr, nullptr);
-  if (needed <= 0) {
-    return std::string();
-  }
-  std::string utf8(static_cast<size_t>(needed), '\0');
-  ::WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()),
-                        &utf8[0], needed, nullptr, nullptr);
-  return utf8;
-}
+// 编码与小写转换统一实现在 internal.h / internal.cpp —— Task 3 的枚举文件也要用
+// 同一套（严格模式 UTF-8，非法序列必须失败），各写一份会让 locator 的编码行为
+// 在文件之间漂移，而 locator 是报告里唯一能把人带到文件的东西。
+// 这里只做名字引入，不重复定义。
+using internal::IsSpace;
+using internal::ToLowerAscii;
+using internal::Utf8ToWide;
+using internal::WideToUtf8;
 
 // 两段式调用 ExpandEnvironmentStringsW：先问长度再分配，不用固定大小缓冲。
 // 环境变量表在两次调用之间被改动时按新长度重试，最多几次后放弃并交由调用方

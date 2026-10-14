@@ -8,6 +8,8 @@
 #ifndef YH_ENGINE_H_
 #define YH_ENGINE_H_
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -34,5 +36,69 @@ struct Config {
 std::unique_ptr<Config> load_config(const std::string& path, std::string* error);
 
 }  // namespace yh
+
+// ===========================================================================
+// C ABI（spec §3.1）。Dart 侧只认这一层。
+//
+// 三个 POD 结构的字段**顺序即 ABI**：Dart 按偏移读，顺序错了不会编译报错，
+// 只会在运行期读出垃圾。x64 下 YhFinding = 56 字节（3 指针 24 + 5 个 int32 20
+// 补齐到 48 + double 8）。test/bindings_layout_test.dart 把这三个尺寸钉死。
+//
+// 返回码：0 = 成功，1 = 配置无效，2 = 分配失败。
+// 全部 char* 为 UTF-8，由 yh_string_free 释放。
+// ===========================================================================
+
+extern "C" {
+
+typedef struct {
+  char* locator;             // 进程完整路径 / 注册表键路径 / 服务名
+  char* display_name;        // 界面展示用
+  char* criteria;            // "file_attr_hs" | "service_interpreter" | "service_path_heuristic"
+  int32_t attributes_verified;  // 0 = 属性未知
+  int32_t hidden;
+  int32_t system;
+  int32_t elevation_required;
+  int32_t covered;           // 0 = 因权限不足未覆盖
+  double timestamp;          // unix 秒
+} YhFinding;
+
+typedef struct {
+  YhFinding* items;
+  size_t count;
+} YhFindingList;
+
+typedef struct {
+  int32_t elevated;
+  int32_t process_total;
+  int32_t process_path_resolved;
+  int32_t session0_visible;   // 非提权时应为 0 —— UI 靠它显示「未覆盖」
+  int32_t services_total;
+  int32_t services_with_path;
+} YhSelfCheck;
+
+// 读配置并建引擎。配置非法返回 nullptr，原因经 yh_last_error 取。
+// 配置非法的原因必须能到界面（spec §2 硬约束 3 要求明确报错而不是静默降级），
+// 所以引擎额外导出 yh_last_error 这一个取值函数——否则「指名键名」无从传达。
+void* yh_engine_create(const char* config_path);
+void yh_engine_destroy(void* handle);
+
+// 自检：实测各项数据源的可达性，用于暴露 FFI/枚举在真机上静默失效的情况。
+int32_t yh_self_check(void* handle, YhSelfCheck* out);
+
+// 三段扫描，与上游 bat 的三段一一对应。
+int32_t yh_scan_processes(void* handle, YhFindingList* out);
+int32_t yh_scan_run_keys(void* handle, YhFindingList* out);
+int32_t yh_scan_services(void* handle, YhFindingList* out);
+
+// 进程内最近一次错误的 UTF-8 文本；无错误时返回空串。不要 free 它。
+const char* yh_last_error(void);
+
+// 释放 yh_scan_* 产出的列表内容与数组本身（幂等）。
+void yh_finding_list_free(YhFindingList* list);
+
+// 释放引擎产出的单个字符串。
+void yh_string_free(char* s);
+
+}  // extern "C"
 
 #endif  // YH_ENGINE_H_

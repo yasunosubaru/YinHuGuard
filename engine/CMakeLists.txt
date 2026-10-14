@@ -62,6 +62,7 @@ add_executable(test_criteria
   tests/test_criteria.cpp
   src/criteria.cpp
   src/config.cpp
+  src/internal.cpp
 )
 target_include_directories(test_criteria PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
@@ -72,6 +73,7 @@ add_executable(test_config
   tests/test_config.cpp
   src/config.cpp
   src/criteria.cpp
+  src/internal.cpp
 )
 target_include_directories(test_config PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
