@@ -179,7 +179,9 @@ spec 隐含、但任何任务的测试都不会自然覆盖的五类输入／失
 
   **`engine/CMakeLists.txt`** 必须做到：设 C++17、项目名 `yinhuguard_engine`、产出共享库 `yinhuguard_engine`、导出符号不被剔除（Linux 上是 `WINDOWS_EXPORT_ALL_SYMBOLS` 之类的等效设置，Windows 上默认全导出）、`include/` 为 PUBLIC include 目录、把 `src/*.cpp` 全部纳入、注册 `test_criteria` 可执行目标并链上 `src/criteria.cpp` 与 `src/config.cpp`。目标平台 x64。
 
-  **`yh_engine.h`** 先只声明 Task 1 用得到的部分：`namespace yh { struct Config; std::unique_ptr<Config> load_config(const std::string& path, std::string* error); }`。
+  `yh_engine.h` 先只声明 Task 1 用得到的部分：`namespace yh { struct Config; std::unique_ptr<Config> load_config(const std::string& path, std::string* error); }`。
+
+  **`load_config` 的硬白名单地板（spec §2 硬约束 2）在此实现。** `swprv`、`vmservice`、`MicrosoftSoftware2ShadowCop4yProvider` 三项**硬编码为不可下调的地板**，与配置文件提供的 `hard_allowlist` **取并集**后写入 `Config::hard_allowlist`。把配置里该数组清空或删项，不会让这三个名字重新变得可报。`is_hard_allowlisted` 的调用方（Task 3）只拿这个已带地板的列表，**不得**自己再读原始配置。
 
   **`load_config`** 实现 spec §8 的校验规则。此处**不做 JSON 解析库选型**，改用最轻量方案：配置是扁平字符串数组，`rules.json` 用固定顺序的数组结构，逐个读入并校验「每项必须是字符串」。校验失败时 `*error` 写入**具体是哪个键不合法**，返回 `nullptr`。
 
@@ -412,9 +414,17 @@ spec 隐含、但任何任务的测试都不会自然覆盖的五类输入／失
   ```
   返回码：`0` = OK，`1` = 配置无效，`2` = 分配失败。
 
-- [ ] **Step 1: 写失败测试 `engine/tests/test_config.cpp`**
+- [ ] **Step 1: 校验 `engine/tests/test_config.cpp`（Task 1 的修正轮已创建此文件，本步只需补齐并接线）**
 
-  只测配置校验（纯逻辑，不触碰真实系统）：合法的 `rules.json` 样本加载成功；缺 `service_interpreter_keywords` 失败且 `error` 含该键名；`service_path_allow_prefixes` 只有一项时失败（spec §8 要求至少两项）；未知 `schema_version` 失败。四个用例均只操作**临时目录里的测试用 json 文件**。
+  Task 1 的修正轮已把 `load_config` 的校验用例落进 `engine/tests/test_config.cpp` 并注册 `add_test`。本步只需：确认该文件存在、已注册到 ctest、且至少覆盖下列四项——
+
+  - 合法的 `rules.json` 样本加载成功
+  - 缺 `service_interpreter_keywords` 失败，且 `error` 含该键名
+  - `service_interpreter_keywords` 为空数组 `[]` 失败（spec §8 要求至少一项，否则该判据静默失效）
+  - `service_path_allow_prefixes` 只有一项时失败（spec §8 要求至少两项）
+  - 未知 `schema_version` 失败
+
+  全部用例只操作**临时目录里的测试用 json 文件**，不触碰真实系统。**不要**把 Task 1 已经写好的用例删掉重写。
 
 - [ ] **Step 2: 编译运行，确认失败**
 

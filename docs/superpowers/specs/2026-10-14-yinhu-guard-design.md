@@ -229,7 +229,9 @@ class Finding {
 }
 ```
 
-启动时校验：schema 版本、各数组存在且为字符串数组、`service_path_allow_prefixes` 至少含两项。任一不合法则**拒绝启动并给出明确错误**，不静默降级。
+启动时校验：schema 版本、各数组存在且为字符串数组、`service_interpreter_keywords` **至少含一项**、`service_path_allow_prefixes` **至少含两项**。任一不合法则**拒绝启动并给出明确错误**，不静默降级。
+
+> 为什么给 `service_interpreter_keywords` 加下限：留空数组能通过「是字符串数组」的检查，但会让 `service_interpreter` 判据整体静默失效——界面上表现为「一条可疑服务都没有」，而原因只是有人把数组清空了。这与「绝不用空结果冒充干净」是同一类失败，必须在加载时就拒绝。
 
 `hard_allowlist` 的语义是**只增不减**：引擎在 C++ 内硬编码 `swprv`、`vmservice`、`MicrosoftSoftware2ShadowCop4yProvider` 作为不可下调的地板，配置文件提供的同名数组与之**取并集**。把手工编辑后的 `hard_allowlist` 清空或删项，不会让这三个名字重新变得可报。依据见 §2 硬约束 2。
 
