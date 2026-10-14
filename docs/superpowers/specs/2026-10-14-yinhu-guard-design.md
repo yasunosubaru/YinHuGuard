@@ -22,7 +22,7 @@
 安全约束，不是偏好，不接受修改。
 
 1. **只走可审计的公开接口。** Win32 访问限于进程查询、SCM 查询、注册表读取、文件属性读取、签名查询。禁止进程注入、API hook、内存读写、驱动加载。原因：清理远控木马的工具如果行为像远控木马，会被Defender 和第三方杀软优先隔离。
-2. **微软系统服务进硬白名单。** 全部系统组件永不参与任何判定。
+2. **微软系统服务进硬白名单。** 全部系统组件永不参与任何判定。**这条由代码强制，不由配置文件强制**——`swprv`、`vmservice`、`MicrosoftSoftware2ShadowCop4yProvider` 三项**硬编码在 C++ 里作为不可下调的地板**，`rules.json` 的 `hard_allowlist` 只能**追加**，不能删除或替换。手工编辑配置把该数组清空，不会让这三个名字重新变得可报。
 3. **配置是纯数据。** `rules.json` 只含关键字、名单等字符串，程序只解析、只比较，**不执行、不eval**。
 
 ---
@@ -116,8 +116,12 @@ void    yh_string_free(char* s);
 
 | 判据 | 来源 |
 |---|---|
-| `service_interpreter` | **忠实还原**：`cmd /c`、`powershell`、`wscript`、`cscript`、`mshta`、`pwsh`（上游原集合，不增不减） |
+| `service_interpreter` | **关键字集合忠实还原**：`cmd /c`、`powershell`、`wscript`、`cscript`、`mshta`、`pwsh`（上游原集合，不增不减）。**但匹配方式比上游更严，见下。** |
 | `service_path_heuristic` | **新增**：`ImagePath` 指向 `C:\Windows\System32` 与 `C:\Windows\SysWOW64` 之外 |
+
+**上游在 `cmd /c` 这一项上是坏的。** `findstr /i /C:"cmd /c"` 是**字面子串**搜索，要求待匹配文本里出现连续的 `cmd /c`。而恶意服务 `ImagePath` 的真实写法是 `C:\Windows\system32\cmd.exe /c "C:\path\a.bat"`——其中是 `cmd.exe /c`，**不含** `cmd /c`。上游因此在这一项上基本抓不到东西。其余五个单记号关键字是有效子串匹配，照搬即可。
+
+本项目对 `cmd /c` 实现**按记号有序匹配**：拆成 `cmd` 与 `/c` 两段，前者须命中路径中某个 exe 词元的 stem、后者紧随其后（允许中间插入 `.exe`）。于是 `cmd.exe /c foo.bat` 命中，裸 `cmd.exe` 不命中。**这是有意的判定改进，不是还原。**
 
 `service_path_heuristic` 是上游没有的**唯一新增判据**。保留它的理由：情报显示银狐常把自身副本直接注册为服务，`ImagePath` 是个 exe 路径、不含任何解释器关键字，上游原判据会直接漏掉。**如果要求严格零新增，删掉这一条即可，其余不变。**
 
@@ -226,6 +230,8 @@ class Finding {
 ```
 
 启动时校验：schema 版本、各数组存在且为字符串数组、`service_path_allow_prefixes` 至少含两项。任一不合法则**拒绝启动并给出明确错误**，不静默降级。
+
+`hard_allowlist` 的语义是**只增不减**：引擎在 C++ 内硬编码 `swprv`、`vmservice`、`MicrosoftSoftware2ShadowCop4yProvider` 作为不可下调的地板，配置文件提供的同名数组与之**取并集**。把手工编辑后的 `hard_allowlist` 清空或删项，不会让这三个名字重新变得可报。依据见 §2 硬约束 2。
 
 ---
 

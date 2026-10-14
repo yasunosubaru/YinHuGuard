@@ -121,12 +121,12 @@ spec 隐含、但任何任务的测试都不会自然覆盖的五类输入／失
   assert(expand_env_vars("%NOSUCHVAR_XYZ%\\x.exe", &ok) == "%NOSUCHVAR_XYZ%\\x.exe");
   assert(!ok);   // 未知变量保持原样并标记未完全展开
 
-  // H/S 属性：spec §4.1 唯一判据
+  // H/S 属性：spec §4.1 唯一判据。注意 0x20 是 ARCHIVE，必须不命中
   assert(has_hidden_or_system(0x2));            // HIDDEN
   assert(has_hidden_or_system(0x4));            // SYSTEM
   assert(has_hidden_or_system(0x6));            // HIDDEN|SYSTEM
-  assert(has_hidden_or_system(0x20));           // ARCHIVE
-  assert(has_hidden_or_system(0x20 | 0x1));     // ARCHIVE|READONLY
+  assert(!has_hidden_or_system(0x20));           // ARCHIVE 单独不命中
+  assert(!has_hidden_or_system(0x20 | 0x1));     // ARCHIVE|READONLY 不命中
   assert(!has_hidden_or_system(0x0));
 
   // 路径前缀：边界必须是目录分隔符
@@ -150,11 +150,13 @@ spec 隐含、但任何任务的测试都不会自然覆盖的五类输入／失
 - [ ] **Step 2: 编译并运行测试，确认失败**
 
   ```
-  cmake -S engine -B engine/build -A x64
+  cmake -S engine -B engine/build -G "Visual Studio 18 2026" -A x64
   cmake --build engine/build --config Release
   engine\build\Release\test_criteria.exe
   ```
-  Expected: **配置阶段**即失败——`engine/CMakeLists.txt` 尚不存在（它在 Step 5 创建）。这是一个退化的 RED：验证的是「构建系统还没搭好」，不是「判据函数未实现」。真正的函数级 RED 在 Step 6 之后首次成功链接时由 `test_criteria.cpp` 里的断言承担。
+  **生成器必须显式指定。** 本机 CMake 4.2 的默认生成器是 Ninja，而 Ninja 不接受 `-A x64`。已确认可用的生成器名：`Visual Studio 18 2026`、`Visual Studio 17 2022`、`Visual Studio 16 2019`。
+
+  Expected: **配置阶段**即失败——`engine/CMakeLists.txt` 尚不存在（它在 Step 5 创建）。这是一个退化的 RED：验证的是「构建系统还没搭好」，不是「判据函数未实现」。真正的函数级 RED 在首次成功链接时由 `test_criteria.cpp` 里的断言承担。
 
 - [ ] **Step 3: 创建 `engine/include/yh_criteria.h`**，照 Step 1 的 Interfaces 块逐字声明七个函数，全部 `namespace yh`、`std::string`/`std::vector<std::string>` 参数显式带类型。
 
@@ -166,7 +168,10 @@ spec 隐含、但任何任务的测试都不会自然覆盖的五类输入／失
   - `extract_run_value_path`：复刻上游三层回退——先找首个 `"` 到末个 `"` 之间的内容；找不到引号则取整个值；最后若以 `)` 结尾则剥掉。空输入返回空串。**Review Focus #5 的四个断言就是这三层的行为契约，不得改写为「只取引号内」。**
   - `expand_env_vars`：用 `ExpandEnvironmentStringsW`。用 `GetFileName` 无意义。调用前先用 `GetEnvironmentVariableW` 探测是否存在未知变量；存在未知变量则置 `*expanded_ok = false` 但仍返回尽力展开后的字符串。缓冲区两段式（先返回长度再分配），不要用固定大小缓冲。
   - `strip_quotes_and_args`：先剥首尾 `"`，若原串以 `"` 开头，则在闭合引号之后截断（丢弃 `-k netsvcs` 这类参数）；若不以引号开头，取第一个空格前的部分。
-  - `matches_interpreter`：对 `image_path` 与每个关键字做子串查找，转小写后比较。**不要**先剥参数——上游就是对整行 `ImagePath` 做 `findstr`，含 `"C:\a\cmd.exe" /c x.bat` 这类也要能命中。
+  - `matches_interpreter`：**按记号有序匹配，不是纯子串匹配**。对每个关键字：小写化后，若关键字含空格（当前只有 `cmd /c`），则拆成 `cmd` 与 `/c` 两段，要求前者出现在路径中某个 exe 词元的 stem 上、后者紧随其后（允许中间插入 `.exe`）；若关键字不含空格，则走子串匹配。这样 `.../cmd.exe /c foo.bat` 命中，而裸 `.../cmd.exe` 不命中。
+
+    **为什么不能照抄上游：** 上游用 `findstr /i /C:"cmd /c"`，那是**字面子串**搜索，匹配不到 `cmd.exe /c`——而那正是恶意服务 ImagePath 的真实写法。上游这条判据在其余五个单记号关键字（`powershell`/`wscript`/`cscript`/`mshta`/`pwsh`）上是有效的，但在 `cmd /c` 这一项上基本抓不到东西。本项目因此实现得更严，见 spec §4.3。**不要为了「像上游」而退回纯子串。**
+  - **不要先剥参数**：引号与参数必须保留在待匹配串里，`"C:\a\cmd.exe" /c x.bat` 要能命中。
   - `path_in_prefixes`：先 `strip_quotes_and_args`，再大小写不敏感比较，且要求第 N 位是 `\` 或 `/`，避免 `System32X` 误配。
   - `is_hard_allowlisted`：大小写不敏感全等比较，不做子串匹配。
 
@@ -458,7 +463,7 @@ spec 隐含、但任何任务的测试都不会自然覆盖的五类输入／失
   ```
   cmake --build engine/build --config Release
   ```
-  Expected: 零错误零警告。
+  Expected: 零错误零警告。若需重新配置：`cmake -S engine -B engine/build -G "Visual Studio 18 2026" -A x64`（生成器必须显式给，本机默认是 Ninja，不接受 `-A x64`）。
 
 - [ ] **Step 9: 验证导出表——本任务唯一的「测试」，且不执行枚举**
 
