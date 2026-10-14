@@ -1,0 +1,85 @@
+{
+  "_note": "每个扫描面各造一个命中，外加一条中文+空格路径。用于验证上层能把发现一路带到报告里。注意 swprv 类条目由引擎侧硬白名单拦掉，不会出现在这里——fixture 代表的是引擎的输出，不是原始系统状态。",
+  "self_check": {
+    "elevated": false,
+    "process_total": 690,
+    "process_path_resolved": 434,
+    "session0_visible": 0,
+    "services_total": 360,
+    "services_with_path": 358
+  },
+  "observations": [
+    {
+      "surface": "processes",
+      "locator": "C:\\Users\\Public\\Documents\\WindowsData\\QduoQFO.exe",
+      "display_name": "QduoQFO.exe",
+      "criteria": "file_attr_hs",
+      "attributes_verified": true,
+      "hidden": true,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945600.0
+    },
+    {
+      "surface": "processes",
+      "locator": "C:\\Windows\\Temp\\临时 目录\\隐藏 文件.exe",
+      "display_name": "隐藏 文件.exe",
+      "criteria": "file_attr_hs",
+      "attributes_verified": true,
+      "hidden": true,
+      "system": true,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945601.0
+    },
+    {
+      "surface": "run_keys",
+      "locator": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\WINWORD2013",
+      "display_name": "C:\\Users\\WINWORD2013.EXE",
+      "criteria": "file_attr_hs",
+      "attributes_verified": true,
+      "hidden": true,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945602.0
+    },
+    {
+      "surface": "run_keys",
+      "locator": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\NoSuchVar",
+      "display_name": "%NOSUCHVAR_XYZ%\\x.exe",
+      "criteria": "file_attr_hs",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": false,
+      "timestamp": 1791945603.0
+    },
+    {
+      "surface": "services",
+      "locator": "CleverSoar",
+      "display_name": "C:\\ProgramData\\quickScreenShot\\CleverSoar.exe",
+      "criteria": "service_path_heuristic",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945604.0
+    },
+    {
+      "surface": "services",
+      "locator": "TCLService",
+      "display_name": "C:\\Windows\\System32\\cmd.exe /c \"C:\\Users\\Public\\Documents\\WindowsData\\a.bat\"",
+      "criteria": "service_interpreter",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945605.0
+    }
+  ]
+}

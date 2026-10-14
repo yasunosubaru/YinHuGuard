@@ -46,5 +46,5 @@ List<Finding> evaluate(
 }
 
 /// 未覆盖的条目数。界面与报告都要以它为准说明「这次没看到什么」。
-int uncoveredCount(List<Finding> findings) =>
+int uncoveredCountOf(List<Finding> findings) =>
     findings.where((Finding f) => !f.covered).length;

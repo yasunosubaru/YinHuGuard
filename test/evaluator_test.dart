@@ -79,7 +79,7 @@ void main() {
         ],
         userAllowlist: const <String>[],
       );
-      expect(uncoveredCount(out), 2);
+      expect(uncoveredCountOf(out), 2);
     });
 
     test('全未覆盖时 findings 不是空列表 —— 空列表正是「干净」的假象来源', () {

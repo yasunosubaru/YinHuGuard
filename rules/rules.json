@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-10-14",
+
+  "_note": "本文件是纯数据。程序只解析、只比较，绝不执行其中的任何内容。",
+  "_provenance": "关键字与判据取自上游 查找隐藏的进程和启动项.bat；hard_allowlist 的三项有厂商情报或系统事实支持，见 spec §4.5。vafdska / MiniFilterDrv 未收录，因为查不到任何银狐公开出处（上游 解禁杀毒软件.bat 却把它们当驱动 reg delete）。",
+
+  "service_interpreter_keywords": [
+    "cmd /c",
+    "powershell",
+    "wscript",
+    "cscript",
+    "mshta",
+    "pwsh"
+  ],
+
+  "service_path_allow_prefixes": [
+    "C:\\Windows\\System32",
+    "C:\\Windows\\SysWOW64"
+  ],
+
+  "process_allowlist": [
+    "explorer.exe",
+    "svchost.exe",
+    "lsass.exe"
+  ],
+
+  "_hard_allowlist_note": "只增不减：引擎在 C++ 里硬编码了同样三项作为不可下调的地板，本数组只能追加，清空或删项都不会让它们重新变得可报。",
+  "hard_allowlist": [
+    "swprv",
+    "vmservice",
+    "MicrosoftSoftware2ShadowCop4yProvider"
+  ],
+
+  "system_process_names": [
+    "System",
+    "smss.exe",
+    "csrss.exe",
+    "wininit.exe",
+    "winlogon.exe",
+    "services.exe",
+    "lsass.exe",
+    "svchost.exe",
+    "dwm.exe",
+    "conhost.exe",
+    "sihost.exe",
+    "dllhost.exe",
+    "spoolsv.exe",
+    "taskhostw.exe"
+  ]
+}

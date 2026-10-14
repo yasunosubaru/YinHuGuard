@@ -1,0 +1,62 @@
+{
+  "_note": "模拟本机非提权实测基线：三个扫描面都没有命中，但**发现列表不是空的**。这正是本项目的核心论点——「什么都没查到」和「机器干净」是两件事。session0_visible=0 且 elevated=false 会让界面显示未覆盖提示。",
+  "_derived_from": "2026-10-14 本机实测：690 个进程 / 434 个取到路径 / Session 0 的 220 个路径 100% 为空；360 个服务 / 358 个有 PathName",
+  "self_check": {
+    "elevated": false,
+    "process_total": 690,
+    "process_path_resolved": 434,
+    "session0_visible": 0,
+    "services_total": 360,
+    "services_with_path": 358
+  },
+  "observations": [
+    {
+      "surface": "processes",
+      "locator": "smss.exe",
+      "display_name": "smss.exe",
+      "criteria": "file_attr_hs",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": true,
+      "covered": false,
+      "timestamp": 1791945600.0
+    },
+    {
+      "surface": "processes",
+      "locator": "csrss.exe",
+      "display_name": "csrss.exe",
+      "criteria": "file_attr_hs",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": true,
+      "covered": false,
+      "timestamp": 1791945600.0
+    },
+    {
+      "surface": "processes",
+      "locator": "services.exe",
+      "display_name": "services.exe",
+      "criteria": "file_attr_hs",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": true,
+      "covered": false,
+      "timestamp": 1791945600.0
+    },
+    {
+      "surface": "services",
+      "locator": "WdNisDrv",
+      "display_name": "WdNisDrv",
+      "criteria": "service_path_heuristic",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": true,
+      "covered": false,
+      "timestamp": 1791945600.0
+    }
+  ]
+}
