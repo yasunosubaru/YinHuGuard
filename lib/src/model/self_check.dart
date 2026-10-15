@@ -46,34 +46,43 @@ class SelfCheck {
     this.servicesUnresolvedOther = 0,
   });
 
+  /// 未解析条目总数。引擎把 ACCESS_DENIED 与「其它」分开记，但这里要的是总数。
+  int get unresolved =>
+      processUnresolvedPermission + servicesUnresolvedPermission +
+      processUnresolvedOther + servicesUnresolvedOther;
+
   /// 提权能解决的缺口总数。>0 就该显示红色警告。
-  int get permissionGaps =>
-      processUnresolvedPermission + servicesUnresolvedPermission;
+  ///
+  /// **按提权状态分类，不按引擎的子分类。** 未提权时 Session 0 一整块必然读不到，
+  /// 那是权限问题、提权能解决——所以**所有**未解析条目都算权限缺口。
+  /// 已提权时还读不到的是保护进程（MsMpEng 之类），提权也解决不了——
+  /// 所以**所有**未解析条目都算残留。
+  ///
+  /// 不采用引擎给出的 `*_permission` / `*_other` 子分类来定这个结论：
+  /// 那份分类在非提权时并不可靠（进程瞬间退出与 ACCESS_DENIED 很难区分），
+  /// 而把分类权交给它，等于允许引擎的误分类把红色警告整个关掉。
+  int get permissionGaps => !elevated ? unresolved : 0;
 
   /// 提权也解决不了的残留总数。>0 只该灰字提一句。
-  int get residualGaps => processUnresolvedOther + servicesUnresolvedOther;
+  int get residualGaps => elevated ? unresolved : 0;
 
-  /// 权限层面还有没看到的。
-  ///
-  /// `!elevated` 是一道保险：非提权时 Session 0 必然有一整块看不到，
-  /// 不该依赖引擎是否恰好把 ACCESS_DENIED 逐条算清楚。
-  bool get hasPermissionGap => !elevated || permissionGaps > 0;
+  /// 权限层面还有未看到的。
+  bool get hasPermissionGap => permissionGaps > 0;
 
   bool get hasResidual => residualGaps > 0;
 
   /// 覆盖完整。
   ///
-  /// 条件必须全部成立：已提权、两个面都真的枚举到了东西、权限层面零缺口。
+  /// 条件必须全部成立：已提权、两个面都真的枚举到了东西、权限层面零缺口、
+  /// **且没有任何残留未覆盖项**（残留属于竞态/保护进程，虽属正常但仍属未覆盖）。
   /// 加 `> 0` 的计数检查是为了挡住「枚举整个失败但返回了 0 个」——
   /// 那种情况下只看 permissionGaps 会算成 0，从而冒充完整。
-  ///
-  /// 注意**不**把 residualGaps 算进来：进程在扫描瞬间退出是竞态，不是缺陷。
-  /// 把它算进来，这个状态就永远达不到，警告也就回到「永不熄灭」的老问题。
   bool get coverageComplete =>
       elevated &&
       processTotal > 0 &&
       servicesTotal > 0 &&
-      permissionGaps == 0;
+      permissionGaps == 0 &&
+      residualGaps == 0;
 
   factory SelfCheck.fromJson(Map<String, dynamic> json) {
     int intOr(String key) => (json[key] as num?)?.toInt() ?? 0;

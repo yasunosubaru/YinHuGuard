@@ -137,27 +137,31 @@ test('未提权时 selfCheck 的三个计数如实报告', () async {
       expect(allPermission.coverageComplete, isFalse);
     });
 
-    test('提权后权限缺口归零 => 覆盖完整这个状态能达到', () {
-      // 整个红/灰分层存在的意义：让「覆盖完整」成为一个真能到达的状态。
-      // 如果 residual 也算进不完整，它就永远达不到，警告也就回到老问题。
+    test('提权后有保护进程残留 => 不报红但也不算完整，显示灰色残留提示', () {
+      // 这是本次真 bug 的回归：`!elevated || permissionGaps > 0` 让已提权机器
+      // 也永远报红，因为杀软保护进程（MsMpEng 等）连管理员都不放行 OpenProcess。
+      // 修复后：权限缺口归零，但残留存在 -> 不报红，显示灰色残留提示，且 coverageComplete 为 false。
       final SelfCheck elevated = SelfCheck(
         elevated: true,
         processTotal: 690,
-        processPathResolved: 688,
+        processPathResolved: 680,
         session0Visible: 220,
         servicesTotal: 360,
         servicesWithPath: 360,
-        processUnresolvedPermission: 0,
-        processUnresolvedOther: 2, // 扫描瞬间退出的两个进程
+        processUnresolvedPermission: 10,  // 保护进程，提权也读不到
+        processUnresolvedOther: 0,
         servicesUnresolvedPermission: 0,
         servicesUnresolvedOther: 0,
       );
-      expect(elevated.permissionGaps, 0);
-      expect(elevated.hasPermissionGap, isFalse, reason: '权限层面没有缺口，不该报红');
-      expect(elevated.hasResidual, isTrue, reason: '但残留存在，界面该灰字提一句');
-      // **核心断言**：有残留也仍然是「覆盖完整」。
-      expect(elevated.coverageComplete, isTrue,
-          reason: '残留是竞态不是缺陷，算进来就永远达不到完整，警告会变成噪音');
+      expect(elevated.permissionGaps, 0,
+          reason: '已提权时未解析项归残留，权限缺口恒为 0');
+      expect(elevated.hasPermissionGap, isFalse,
+          reason: '已提权时未解析的是保护进程残留，不是权限缺口，不该报红');
+      expect(elevated.hasResidual, isTrue,
+          reason: '残留存在，界面该灰字提一句');
+      // **核心断言**：有保护进程残留时，coverageComplete 为 false（不完整），但不报红。
+      expect(elevated.coverageComplete, isFalse,
+          reason: '残留虽正常但仍属未覆盖，完整性要求零未覆盖');
     });
 
     test('提权了但枚举整个失败返回 0 个，不能冒充覆盖完整', () {
@@ -178,7 +182,7 @@ test('未提权时 selfCheck 的三个计数如实报告', () async {
           reason: '枚举返回 0 个是「什么都没枚举到」，不是「全部检查过且干净」');
     });
 
-    test('提权但仍有权限缺口时不许说完整', () {
+    test('已提权时未解析项归残留，不报红但也不算完整', () {
       final SelfCheck partlyBlocked = SelfCheck(
         elevated: true,
         processTotal: 690,
@@ -187,9 +191,14 @@ test('未提权时 selfCheck 的三个计数如实报告', () async {
         servicesTotal: 360,
         servicesWithPath: 360,
         processUnresolvedPermission: 90,
+        processUnresolvedOther: 0,
+        servicesUnresolvedPermission: 0,
+        servicesUnresolvedOther: 0,
       );
-      expect(partlyBlocked.hasPermissionGap, isTrue);
-      expect(partlyBlocked.coverageComplete, isFalse);
+      expect(partlyBlocked.hasPermissionGap, isFalse,
+          reason: '已提权 => 未解析是保护进程残留，不是权限缺口');
+      expect(partlyBlocked.coverageComplete, isFalse,
+          reason: '残留虽正常但仍属未覆盖，完整性要求零未覆盖');
     });
 
     test('未提权时即便引擎把缺口都算成了 residual，也仍然报权限缺口', () {
