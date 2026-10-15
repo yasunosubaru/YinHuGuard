@@ -74,6 +74,16 @@ typedef struct {
   int32_t session0_visible;   // 非提权时应为 0 —— UI 靠它显示「未覆盖」
   int32_t services_total;
   int32_t services_with_path;
+  // 「没查到」必须分成两类，否则界面只能一律报红。而一个永远关不掉的警告
+  // 等于没有警告 —— 用两周之后用户就会开始无视它，那正是这个工具要防的事。
+  //   *_permission：OpenProcess / OpenServiceW 被 ACCESS_DENIED 拒。
+  //                 **提权能解决**，所以红色、可行动。
+  //   *_other     ：进程在枚举那一瞬退出了，或是连管理员都不放行的保护进程。
+  //                 **提权也解决不了，属于正常**，界面上只该灰字提示一句。
+  int32_t process_unresolved_permission;
+  int32_t process_unresolved_other;
+  int32_t services_unresolved_permission;
+  int32_t services_unresolved_other;
 } YhSelfCheck;
 
 // 读配置并建引擎。配置非法返回 nullptr，原因经 yh_last_error 取。
@@ -132,7 +142,7 @@ static_assert(sizeof(YhFindingList) == 16, "YhFindingList 必须是 16 字节（
 static_assert(offsetof(YhFindingList, items) == 0, "YhFindingList.items 偏移必须为 0");
 static_assert(offsetof(YhFindingList, count) == 8, "YhFindingList.count 偏移必须为 8");
 
-static_assert(sizeof(YhSelfCheck) == 24, "YhSelfCheck 必须是 24 字节");
+static_assert(sizeof(YhSelfCheck) == 40, "YhSelfCheck 必须是 40 字节（10 个 int32）");
 static_assert(offsetof(YhSelfCheck, elevated) == 0, "YhSelfCheck.elevated 偏移必须为 0");
 static_assert(offsetof(YhSelfCheck, process_total) == 4, "YhSelfCheck.process_total 偏移必须为 4");
 static_assert(offsetof(YhSelfCheck, process_path_resolved) == 8,
@@ -143,5 +153,13 @@ static_assert(offsetof(YhSelfCheck, services_total) == 16,
               "YhSelfCheck.services_total 偏移必须为 16");
 static_assert(offsetof(YhSelfCheck, services_with_path) == 20,
               "YhSelfCheck.services_with_path 偏移必须为 20");
+static_assert(offsetof(YhSelfCheck, process_unresolved_permission) == 24,
+              "YhSelfCheck.process_unresolved_permission 偏移必须为 24");
+static_assert(offsetof(YhSelfCheck, process_unresolved_other) == 28,
+              "YhSelfCheck.process_unresolved_other 偏移必须为 28");
+static_assert(offsetof(YhSelfCheck, services_unresolved_permission) == 32,
+              "YhSelfCheck.services_unresolved_permission 偏移必须为 32");
+static_assert(offsetof(YhSelfCheck, services_unresolved_other) == 36,
+              "YhSelfCheck.services_unresolved_other 偏移必须为 36");
 
 #endif  // YH_ENGINE_H_

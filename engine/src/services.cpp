@@ -113,6 +113,11 @@ int32_t ScanServices(const ServiceScanOptions& options, ServiceScanSummary* summ
                                        SERVICE_QUERY_CONFIG);
     if (service == nullptr) {
       const bool access_denied = (::GetLastError() == ERROR_ACCESS_DENIED);
+      if (access_denied) {
+        local.unresolved_permission += 1;
+      } else {
+        local.unresolved_other += 1;
+      }
       if (findings != nullptr) {
         if (!AppendFinding(findings, service_name.c_str(), service_name.c_str(),
                            "service_path_heuristic", /*attributes_verified=*/false,
@@ -137,6 +142,11 @@ int32_t ScanServices(const ServiceScanOptions& options, ServiceScanSummary* summ
 
     if (!got_path || image_path.empty()) {
       // 拿不到 ImagePath：判不了，记未覆盖（权限不够时标注需要提权）。
+      if (access_denied) {
+        local.unresolved_permission += 1;
+      } else {
+        local.unresolved_other += 1;
+      }
       if (findings != nullptr) {
         if (!AppendFinding(findings, service_name.c_str(), service_name.c_str(),
                            "service_path_heuristic", /*attributes_verified=*/false,

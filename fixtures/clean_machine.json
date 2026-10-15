@@ -7,7 +7,11 @@
     "process_path_resolved": 434,
     "session0_visible": 0,
     "services_total": 360,
-    "services_with_path": 358
+    "services_with_path": 358,
+    "process_unresolved_permission": 256,
+    "process_unresolved_other": 0,
+    "services_unresolved_permission": 2,
+    "services_unresolved_other": 0
   },
   "observations": [
     {

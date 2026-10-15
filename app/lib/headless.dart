@@ -107,12 +107,17 @@ String _summary(ScanResult result, String jsonPath, String logPath) {
   }
   out.writeln();
   out.writeln('发现合计 ${result.findings.length} 条，其中未覆盖 $uncovered 条');
-  if (result.selfCheck.coverageIncomplete(uncoveredCountOf(result.findings))) {
+  if (result.selfCheck.hasPermissionGap || uncoveredCountOf(result.findings) > 0) {
     out.writeln('!! 本次扫描的覆盖范围不完整。');
     if (!result.selfCheck.elevated) {
       out.writeln('!! 未提权，Session 0 的进程路径读不到，系统进程这一整块没有被检查。');
     }
     out.writeln('!! 不能据此判断机器干净。');
+    out.writeln('!! 需要完整覆盖请以管理员身份重新运行。');
+  }
+  if (result.selfCheck.hasResidual) {
+    out.writeln('（另有 ${result.selfCheck.residualGaps} 个进程/服务在扫描期间退出或受保护，'
+        '属正常现象，不影响结论。）');
   }
   for (final Finding f in result.findings) {
     final String flags = <String>[

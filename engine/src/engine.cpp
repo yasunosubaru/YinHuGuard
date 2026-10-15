@@ -86,6 +86,8 @@ int32_t yh_self_check(void* handle, YhSelfCheck* out) {
   result.process_total = process_summary.process_total;
   result.process_path_resolved = process_summary.process_path_resolved;
   result.session0_visible = process_summary.session0_visible;
+  result.process_unresolved_permission = process_summary.unresolved_permission;
+  result.process_unresolved_other = process_summary.unresolved_other;
 
   yh::internal::ServiceScanSummary service_summary;
   const int32_t service_code = yh::internal::ScanServices(
@@ -95,6 +97,8 @@ int32_t yh_self_check(void* handle, YhSelfCheck* out) {
   }
   result.services_total = service_summary.services_total;
   result.services_with_path = service_summary.services_with_path;
+  result.services_unresolved_permission = service_summary.unresolved_permission;
+  result.services_unresolved_other = service_summary.unresolved_other;
 
   *out = result;
   return 0;

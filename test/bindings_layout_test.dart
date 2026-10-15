@@ -24,16 +24,17 @@ void main() {
       expect(sizeOf<YhFindingList>(), 16);
     });
 
-    test('YhSelfCheck 是 24 字节', () {
-      // 6 个 int32
-      expect(sizeOf<YhSelfCheck>(), 24);
+    test('YhSelfCheck 是 40 字节', () {
+      // 10 个 int32：6 个原有 + 4 个「没查到」的分类计数。
+      // 后面那 4 个是让界面能分红/灰的依据，少一个就退回「一律报红」。
+      expect(sizeOf<YhSelfCheck>(), 40);
     });
 
     test('YhFinding 的字段偏移与 spec §3.1 的顺序一致', () {
       // 用只含首字段的结构体做参照，间接核对前三个指针挨着排。
       // 顺序一旦被改动，locator 会读到 display_name 的内容。
       expect(sizeOf<YhFinding>(), greaterThan(sizeOf<YhFindingList>()));
-      expect(sizeOf<YhFinding>() - sizeOf<YhSelfCheck>(), 32);
+      expect(sizeOf<YhFinding>() - sizeOf<YhSelfCheck>(), 16);
     });
 
     test('返回码常量与 spec §3.1 一致', () {

@@ -52,21 +52,23 @@ Future<File> writeScanLog(
   out.writeln('Session 0 可见进程: ${result.selfCheck.session0Visible}');
   out.writeln('服务总数: ${result.selfCheck.servicesTotal}');
   out.writeln('取到 ImagePath 的服务: ${result.selfCheck.servicesWithPath}');
-  if (result.selfCheck.coverageIncomplete(uncoveredCountOf(result.findings))) {
+  if (result.selfCheck.hasPermissionGap ||
+      uncoveredCountOf(result.findings) > 0) {
     out.writeln();
     out.writeln('!! 本次扫描的覆盖范围不完整。');
     if (!result.selfCheck.elevated) {
       out.writeln('!! 未提权，Session 0 的进程路径读不到，系统进程这一整块没有被检查。');
     }
-    if (result.selfCheck.hasUnresolvedProcesses) {
-      out.writeln('!! 有 ${result.selfCheck.processTotal - result.selfCheck.processPathResolved} '
-          '个进程取不到路径，它们没有被检查。');
-    }
-    if (result.selfCheck.hasUnresolvedServices) {
-      out.writeln('!! 有 ${result.selfCheck.servicesTotal - result.selfCheck.servicesWithPath} '
-          '个服务取不到 ImagePath，它们没有被检查。');
+    if (result.selfCheck.permissionGaps > 0) {
+      out.writeln('!! 有 ${result.selfCheck.permissionGaps} 个进程/服务因权限没被检查。');
     }
     out.writeln('!! 不能据此判断机器干净。');
+  }
+  if (result.selfCheck.hasResidual) {
+    // 刻意不算进「不完整」：扫描瞬间退出与保护进程是竞态，不是缺陷。
+    // 把它们也算进去，这个日志就永远说「不完整」，警告也就废了。
+    out.writeln('（另有 ${result.selfCheck.residualGaps} 个进程/服务在扫描期间退出或受保护，'
+        '属正常现象，不影响结论。）');
   }
   out.writeln();
 

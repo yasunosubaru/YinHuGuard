@@ -119,6 +119,12 @@ Map<String, dynamic> _selfCheckInIsolate(_ScanRequest request) {
         'session0_visible': s.session0Visible,
         'services_total': s.servicesTotal,
         'services_with_path': s.servicesWithPath,
+        // 「没查到」的两类原因必须一起带回来，界面才能分红/灰。
+        // 少一个就退回到「一律报红」，也就是这个模型要避免的老问题。
+        'process_unresolved_permission': s.processUnresolvedPermission,
+        'process_unresolved_other': s.processUnresolvedOther,
+        'services_unresolved_permission': s.servicesUnresolvedPermission,
+        'services_unresolved_other': s.servicesUnresolvedOther,
       };
     } finally {
       calloc.free(out);

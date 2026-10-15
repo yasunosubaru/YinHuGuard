@@ -58,6 +58,14 @@ final class YhSelfCheck extends Struct {
   external int servicesTotal;
   @Int32()
   external int servicesWithPath;
+  @Int32()
+  external int processUnresolvedPermission;
+  @Int32()
+  external int processUnresolvedOther;
+  @Int32()
+  external int servicesUnresolvedPermission;
+  @Int32()
+  external int servicesUnresolvedOther;
 }
 
 /// 返回码。spec §3.1：0 = 成功，1 = 配置无效，2 = 分配失败。

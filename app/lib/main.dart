@@ -143,8 +143,22 @@ class _BootstrapState extends State<_Bootstrap> {
 
     final AppPaths paths = _paths!;
     return Scaffold(
-      appBar: AppBar(
+appBar: AppBar(
         title: const Text(kAppTitle),
+        actions: <Widget>[
+          // 「完整扫描」放常驻位置，而不是只藏在警告面板里。
+          // 它是绝大多数用户的**主流程**——不点它就永远只看到一半系统，
+          // 而「没有发现任何问题」会被读成「机器是干净的」。
+          if (!_elevated)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: FilledButton.tonalIcon(
+                onPressed: _elevate,
+                icon: const Icon(Icons.security),
+                label: const Text(kElevateButton),
+              ),
+            ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(20),
           child: Padding(

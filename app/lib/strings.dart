@@ -59,10 +59,28 @@ const String kUnresolvedRowsBody =
 /// 兼容旧名，界面标题统一走 kCoverageIncompleteTitle。
 const String kSession0WarningTitle = kCoverageIncompleteTitle;
 
-const String kElevateButton = '以管理员身份重新扫描';
+const String kElevateButton = '完整扫描（提权重跑）';
+const String kElevateHint =
+    '完整扫描 = 以管理员身份重新跑一遍。Session 0 的进程只有管理员权限才读得到，'
+    '不提升的话那一整块永远看不到。';
 const String kElevateCancelled = '提权被取消，仍以普通权限运行。系统进程依然未被覆盖。';
 const String kElevateFailed = '提权失败：';
-const String kElevatedAlready = '已以管理员身份运行，覆盖范围完整。';
+const String kElevatedAlready = '已以管理员身份运行。';
+
+/// 权限层面零缺口 —— 这是本工具唯一能达到的「完整」。
+const String kCoverageCompleteTitle = '覆盖完整';
+
+/// 说清楚「完整」的边界，否则用户会把这句话读成「保证没病毒」。
+const String kCoverageCompleteBody =
+    '本次所有进程与服务都已检查，没有因权限而遗漏的部分。\n'
+    '这不代表机器一定干净——判定用的是启发式规则，仍需人确认。';
+
+/// 扫描期残留：不是缺陷，刻意不报红。
+const String kResidualNoticeTitle = '扫描期间的正常残留';
+
+const String kResidualNoticeBody =
+    '有 %d 个进程/服务在扫描过程中已经退出，或属于系统保护进程。\n'
+    '这不是权限问题，提权也读不到，属于竞态而非缺陷，不影响本次结论。';
 
 // ---- 结果列表 ----
 

@@ -77,6 +77,9 @@ struct ProcessScanSummary {
   int32_t process_total = 0;
   int32_t process_path_resolved = 0;
   int32_t session0_visible = 0;
+  // 没查到的两类原因，见 yh_engine.h 的 YhSelfCheck 注释。
+  int32_t unresolved_permission = 0;  // OpenProcess 被 ACCESS_DENIED 拒，提权能解决
+  int32_t unresolved_other = 0;       // 枚举瞬间退出 / 保护进程，提权也解决不了
 };
 
 // 枚举进程。findings 为 nullptr 时只统计不产出发现。
@@ -97,6 +100,9 @@ struct ServiceScanOptions {
 struct ServiceScanSummary {
   int32_t services_total = 0;
   int32_t services_with_path = 0;
+  // 同上：提权能解决的 vs 提权也解决不了的。
+  int32_t unresolved_permission = 0;
+  int32_t unresolved_other = 0;
 };
 
 int32_t ScanServices(const ServiceScanOptions& options, ServiceScanSummary* summary,

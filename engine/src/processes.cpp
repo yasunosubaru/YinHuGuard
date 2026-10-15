@@ -95,6 +95,17 @@ int32_t ScanProcesses(ProcessScanSummary* summary, YhFindingList* findings) {
     const std::string utf8_path = resolved ? WideToUtf8(wide_path) : std::string();
     const bool path_ok = !utf8_path.empty();
 
+    // 把「没查到」分两类。这是让界面能分红/灰的唯一依据：一个永远关不掉
+    // 的警告等于没有警告。ACCESS_DENIED 是提权能解决的；其余（枚举瞬间
+    // 退出、保护进程）是提权也解决不了的正常现象。
+    if (!path_ok) {
+      if (access_denied) {
+        local.unresolved_permission += 1;
+      } else {
+        local.unresolved_other += 1;
+      }
+    }
+
     std::string locator;
     std::string display_name;
 

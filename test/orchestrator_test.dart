@@ -75,7 +75,7 @@ void main() {
       expect(orchestrator.result.findings.any((Finding f) => !f.covered), isTrue);
     });
 
-    test('未提权时 selfCheck 的三个计数如实报告', () async {
+test('未提权时 selfCheck 的三个计数如实报告', () async {
       final Orchestrator orchestrator = Orchestrator(loadFixture('clean_machine.json'));
       await orchestrator.scan((_, __, ___) {});
 
@@ -85,18 +85,57 @@ void main() {
       expect(orchestrator.result.selfCheck.processPathResolved, 434);
       expect(orchestrator.result.selfCheck.servicesTotal, 360);
       expect(orchestrator.result.selfCheck.servicesWithPath, 358);
-      // 非提权直接判不完整：Session 0 是权限拦住的，不需要等计数来证明。
-      expect(
-        orchestrator.result.selfCheck.coverageIncomplete(orchestrator.uncoveredCount),
-        isTrue,
-      );
       expect(orchestrator.result.selfCheck.coverageComplete, isFalse);
-      // 有进程拿到了 PID 却拿不到路径 —— 这就是「本来该看、没看到」的证据。
-      expect(orchestrator.result.selfCheck.hasUnresolvedProcesses, isTrue);
+      // 未提权 → 权限缺口必然存在 → 该显示红色警告。
+      expect(orchestrator.result.selfCheck.hasPermissionGap, isTrue);
     });
 
-    test('提权且各面计数健康时才敢说覆盖完整', () async {
-      // 这一条防的是「提权了但枚举整个失败返回 0 个」冒充完整的情况。
+    test('权限缺口与扫描期残留被分成两类', () {
+      // 这是「完整扫描」能成立的前提：两类混在一起时，警告永远关不掉。
+      final SelfCheck allPermission = SelfCheck(
+        elevated: false,
+        processTotal: 690,
+        processPathResolved: 434,
+        session0Visible: 0,
+        servicesTotal: 360,
+        servicesWithPath: 358,
+        processUnresolvedPermission: 256,
+        processUnresolvedOther: 0,
+        servicesUnresolvedPermission: 2,
+        servicesUnresolvedOther: 0,
+      );
+      expect(allPermission.permissionGaps, 258);
+      expect(allPermission.residualGaps, 0);
+      expect(allPermission.hasPermissionGap, isTrue);
+      expect(allPermission.hasResidual, isFalse);
+      expect(allPermission.coverageComplete, isFalse);
+    });
+
+    test('提权后权限缺口归零 => 覆盖完整这个状态能达到', () {
+      // 整个红/灰分层存在的意义：让「覆盖完整」成为一个真能到达的状态。
+      // 如果 residual 也算进不完整，它就永远达不到，警告也就回到老问题。
+      final SelfCheck elevated = SelfCheck(
+        elevated: true,
+        processTotal: 690,
+        processPathResolved: 688,
+        session0Visible: 220,
+        servicesTotal: 360,
+        servicesWithPath: 360,
+        processUnresolvedPermission: 0,
+        processUnresolvedOther: 2, // 扫描瞬间退出的两个进程
+        servicesUnresolvedPermission: 0,
+        servicesUnresolvedOther: 0,
+      );
+      expect(elevated.permissionGaps, 0);
+      expect(elevated.hasPermissionGap, isFalse, reason: '权限层面没有缺口，不该报红');
+      expect(elevated.hasResidual, isTrue, reason: '但残留存在，界面该灰字提一句');
+      // **核心断言**：有残留也仍然是「覆盖完整」。
+      expect(elevated.coverageComplete, isTrue,
+          reason: '残留是竞态不是缺陷，算进来就永远达不到完整，警告会变成噪音');
+    });
+
+    test('提权了但枚举整个失败返回 0 个，不能冒充覆盖完整', () {
+      // 光看 permissionGaps 会漏：0 不大于 0，所以必须另加计数 > 0 的条件。
       final SelfCheck broken = SelfCheck(
         elevated: true,
         processTotal: 0,
@@ -104,38 +143,46 @@ void main() {
         session0Visible: 0,
         servicesTotal: 0,
         servicesWithPath: 0,
+        processUnresolvedPermission: 0,
+        processUnresolvedOther: 0,
+        servicesUnresolvedPermission: 0,
+        servicesUnresolvedOther: 0,
       );
       expect(broken.coverageComplete, isFalse,
-          reason: '枚举返回 0 个不能算覆盖完整，那是「什么都没枚举到」');
-      // 而且这种情形下 hasUnresolvedProcesses 是 false（0 不小于 0），
-      // 所以完整性判断必须另加计数 > 0 的条件，光看「有没有未解析项」会漏。
-      expect(broken.hasUnresolvedProcesses, isFalse);
+          reason: '枚举返回 0 个是「什么都没枚举到」，不是「全部检查过且干净」');
+    });
 
-      final SelfCheck healthy = SelfCheck(
+    test('提权但仍有权限缺口时不许说完整', () {
+      final SelfCheck partlyBlocked = SelfCheck(
         elevated: true,
         processTotal: 690,
-        processPathResolved: 690,
-        session0Visible: 220,
+        processPathResolved: 600,
+        session0Visible: 150,
         servicesTotal: 360,
         servicesWithPath: 360,
+        processUnresolvedPermission: 90,
       );
-      expect(healthy.coverageComplete, isTrue);
-      expect(healthy.coverageIncomplete(0), isFalse);
+      expect(partlyBlocked.hasPermissionGap, isTrue);
+      expect(partlyBlocked.coverageComplete, isFalse);
     });
 
-    test('发现级未覆盖也会让结论判为不完整', () {
-      // 自检计数健康但有一条具体项没读出来：只有发现级的数字能看出来。
-      final SelfCheck healthy = SelfCheck(
-        elevated: true,
-        processTotal: 10,
-        processPathResolved: 10,
-        session0Visible: 5,
-        servicesTotal: 10,
-        servicesWithPath: 10,
+    test('未提权时即便引擎把缺口都算成了 residual，也仍然报权限缺口', () {
+      // 保险：完整性判断不该完全依赖引擎是否把 ACCESS_DENIED 逐条算清楚。
+      final SelfCheck mislabelled = SelfCheck(
+        elevated: false,
+        processTotal: 690,
+        processPathResolved: 434,
+        session0Visible: 0,
+        servicesTotal: 360,
+        servicesWithPath: 358,
+        processUnresolvedPermission: 0,
+        processUnresolvedOther: 256,
       );
-      expect(healthy.coverageIncomplete(0), isFalse);
-      expect(healthy.coverageIncomplete(1), isTrue);
+      expect(mislabelled.hasPermissionGap, isTrue,
+          reason: '非提权时 Session 0 必然有一整块看不到，不能因为分类被算错就放过');
+      expect(mislabelled.coverageComplete, isFalse);
     });
+
 
     test('三个扫描面的发现都被收集，中文与空格的 locator 原样返回', () async {
       final Orchestrator orchestrator = Orchestrator(loadFixture('silverfox_sample.json'));

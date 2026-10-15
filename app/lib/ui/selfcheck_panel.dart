@@ -42,7 +42,8 @@ class SelfCheckPanel extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final bool incomplete = check.coverageIncomplete(uncoveredCount);
+    final bool incomplete = check.hasPermissionGap;
+    final bool residual = check.hasResidual;
 
     return Card(
       margin: const EdgeInsets.all(12),
@@ -70,6 +71,26 @@ class SelfCheckPanel extends StatelessWidget {
                 _Stat(label: kServicesWithPath, value: '${check.servicesWithPath}'),
               ],
             ),
+            if (check.permissionGaps > 0 || !check.elevated)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '因权限未检查：${check.permissionGaps} 个',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ),
+            if (residual)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  '扫描期退出/受保护：${check.residualGaps} 个（正常）',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
+                ),
+              ),
             if (incomplete) ...<Widget>[
               const SizedBox(height: 12),
               Container(
@@ -127,11 +148,74 @@ class SelfCheckPanel extends StatelessWidget {
                   ],
                 ),
               ),
-            ] else if (check.coverageComplete) ...<Widget>[
-              const SizedBox(height: 8),
-              Text(
-                kElevatedAlready,
-                style: theme.textTheme.bodySmall,
+] else if (check.coverageComplete) ...<Widget>[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Icon(Icons.verified_outlined,
+                            color: theme.colorScheme.onSecondaryContainer),
+                        const SizedBox(width: 8),
+                        Text(
+                          kCoverageCompleteTitle,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: theme.colorScheme.onSecondaryContainer,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      kCoverageCompleteBody,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSecondaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            // 残留单独一块、灰色、放在最后。它不是缺陷，所以绝不能报红 ——
+            // 红色一旦给错了地方，用户就会对整块面板失去信任，连带不再看真正
+            // 该看的权限缺口。一个永远关不掉的警告等于没有警告。
+            if (!incomplete && residual) ...<Widget>[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Icon(Icons.info_outline, color: theme.colorScheme.outline),
+                        const SizedBox(width: 8),
+                        Text(kResidualNoticeTitle,
+                            style: theme.textTheme.titleSmall),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      kResidualNoticeBody.replaceAll('%d', '${check.residualGaps}'),
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
               ),
             ],
           ],
