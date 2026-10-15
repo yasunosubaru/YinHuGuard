@@ -1,0 +1,149 @@
+{
+  "_note": "七个扫描面各造一条，用于验证深度扫描接入后界面侧边栏、分组表格与判据标签都正确。这条 fixture 里的驱动名、任务名、注册表键、文件路径全部来自厂商情报（见 engine/include/ioc_table.h 的出处），不是随手编的。",
+  "self_check": {
+    "elevated": true,
+    "process_total": 690,
+    "process_path_resolved": 690,
+    "session0_visible": 220,
+    "services_total": 360,
+    "services_with_path": 360,
+    "process_unresolved_permission": 0,
+    "process_unresolved_other": 1,
+    "services_unresolved_permission": 0,
+    "services_unresolved_other": 0
+  },
+  "observations": [
+    {
+      "surface": "processes",
+      "locator": "C:\\Users\\Public\\Documents\\WindowsData\\QduoQFO.exe",
+      "display_name": "QduoQFO.exe",
+      "criteria": "file_attr_hs",
+      "attributes_verified": true,
+      "hidden": true,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945800.0
+    },
+    {
+      "surface": "run_keys",
+      "locator": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\WINWORD2013",
+      "display_name": "C:\\Users\\WINWORD2013.EXE",
+      "criteria": "file_attr_hs",
+      "attributes_verified": true,
+      "hidden": true,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945801.0
+    },
+    {
+      "surface": "services",
+      "locator": "TCLService",
+      "display_name": "C:\\Windows\\System32\\cmd.exe /c \"C:\\Users\\Public\\Documents\\WindowsData\\a.bat\"",
+      "criteria": "service_interpreter",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945802.0
+    },
+    {
+      "surface": "registry_payloads",
+      "locator": "HKCU\\Console\\d33f351a4aeea5e608853d1a56661059",
+      "display_name": "d33f351a4aeea5e608853d1a56661059",
+      "criteria": "name_match",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945803.0
+    },
+    {
+      "surface": "registry_payloads",
+      "locator": "HKLM\\SOFTWARE\\IpDates_sun",
+      "display_name": "IpDates_sun",
+      "criteria": "name_match",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945804.0
+    },
+    {
+      "surface": "drivers",
+      "locator": "amsdk",
+      "display_name": "C:\\Windows\\Temp\\amsdk.sys",
+      "criteria": "name_match",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945805.0
+    },
+    {
+      "surface": "drivers",
+      "locator": "SomeOddDriver",
+      "display_name": "C:\\Users\\Public\\odd.sys",
+      "criteria": "path_heuristic",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945806.0
+    },
+    {
+      "surface": "file_drops",
+      "locator": "C:\\Windows\\Temp\\aceprocted.sys",
+      "display_name": "C:\\Windows\\Temp\\aceprocted.sys",
+      "criteria": "name_match",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945807.0
+    },
+    {
+      "surface": "file_drops",
+      "locator": "C:\\ProgramData\\Google\\Update\\odd.sys",
+      "display_name": "C:\\ProgramData\\Google\\Update\\odd.sys",
+      "criteria": "path_heuristic",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945808.0
+    },
+    {
+      "surface": "scheduled_tasks",
+      "locator": "\\WindowsPowerShell.WbemScripting.SWbemLocator\\WindowsPowerShell.WbemScripting.SWbemLocator",
+      "display_name": "powershell.exe -nop -w hidden -enc AAAA",
+      "criteria": "name_match",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945809.0
+    },
+    {
+      "surface": "scheduled_tasks",
+      "locator": "\\OddTask\\OddTask",
+      "display_name": "C:\\Users\\Public\\a.exe",
+      "criteria": "path_heuristic",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945810.0
+    }
+  ]
+}

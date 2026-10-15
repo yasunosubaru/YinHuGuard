@@ -82,12 +82,22 @@ struct ProcessScanSummary {
   int32_t unresolved_other = 0;       // 枚举瞬间退出 / 保护进程，提权也解决不了
 };
 
-// 枚举进程。findings 为 nullptr 时只统计不产出发现。
-// 返回 0 成功，2 分配失败。
-int32_t ScanProcesses(ProcessScanSummary* summary, YhFindingList* findings);
+// 5) 注册表内存储载荷（不是启动项，但清理时最易漏：只删启动项不删载荷，
+//    重启就回来了）。
+int32_t ScanRegistryPayloads(YhFindingList* findings);
 
-// 枚举三个 Run 键。「扫描2/3」。
-int32_t ScanRunKeys(YhFindingList* findings);
+// 6) 驱动服务。BYOVD 那一类：全都有合法签名，签名校验挡不住，只能靠已知文件名认。
+// 前向声明：ScanDrivers 按 const 引用收它，定义在下面。
+struct ServiceScanOptions;
+int32_t ScanDrivers(YhFindingList* findings, const ServiceScanOptions& options);
+
+// 7) 文件落点。完整路径的走 IOC 表，ProgramData 下的 *.sys 与 IE 目录下的
+//    6 位随机目录单独走启发式。
+int32_t ScanFileDrops(YhFindingList* findings);
+
+// 8) 计划任务。四项里最重的一处 —— 要走 Task Scheduler COM。
+int32_t ScanScheduledTasks(YhFindingList* findings);
+// 返回 0 成功，2 分配失败。
 
 // 枚举服务并判可疑。「扫描3/3」。需要配置的判据集合与硬白名单。
 struct ServiceScanOptions {
@@ -95,6 +105,11 @@ struct ServiceScanOptions {
   const std::vector<std::string>* path_allow_prefixes = nullptr;
   const std::vector<std::string>* hard_allowlist = nullptr;
 };
+
+int32_t ScanProcesses(ProcessScanSummary* summary, YhFindingList* findings);
+
+// 枚举三个 Run 键。「扫描2/3」。
+int32_t ScanRunKeys(YhFindingList* findings);
 
 // 汇总计数，供 self_check 与 scan_services 同源使用。
 struct ServiceScanSummary {

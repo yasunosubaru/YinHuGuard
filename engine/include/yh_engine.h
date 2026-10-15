@@ -100,6 +100,16 @@ int32_t yh_scan_processes(void* handle, YhFindingList* out);
 int32_t yh_scan_run_keys(void* handle, YhFindingList* out);
 int32_t yh_scan_services(void* handle, YhFindingList* out);
 
+// ---- 深度扫描（二期）。四项都有厂商情报佐证 ----
+// 5) 注册表内存储载荷 —— 不是启动项，但只删启动项不删载荷，重启就回来了。
+int32_t yh_scan_registry_payloads(void* handle, YhFindingList* out);
+// 6) 驱动服务 —— BYOVD 全家，全有合法签名，签名校验挡不住，只能靠已知文件名认。
+int32_t yh_scan_drivers(void* handle, YhFindingList* out);
+// 7) 文件落点 —— 完整路径 + ProgramData 下的 *.sys + IE 目录下 6 位随机目录。
+int32_t yh_scan_file_drops(void* handle, YhFindingList* out);
+// 8) 计划任务 —— 走 Task Scheduler COM，不是从进程里猜。
+int32_t yh_scan_scheduled_tasks(void* handle, YhFindingList* out);
+
 // 进程内最近一次错误的 UTF-8 文本；无错误时返回空串。不要 free 它。
 const char* yh_last_error(void);
 

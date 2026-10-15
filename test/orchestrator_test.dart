@@ -34,6 +34,18 @@ class _ScriptedSource implements ObservationSource {
   }
 
   @override
+  Future<List<Observation>> scanRegistryPayloads() async => <Observation>[];
+
+  @override
+  Future<List<Observation>> scanDrivers() async => <Observation>[];
+
+  @override
+  Future<List<Observation>> scanFileDrops() async => <Observation>[];
+
+  @override
+  Future<List<Observation>> scanScheduledTasks() async => <Observation>[];
+
+  @override
   Future<SelfCheck> selfCheck() async => SelfCheck(
         elevated: false,
         processTotal: 0,
@@ -46,21 +58,35 @@ class _ScriptedSource implements ObservationSource {
 
 void main() {
   group('进度回调', () {
-    test('按 processes -> run_keys -> services 顺序回调，计数从 1 开始', () async {
+    test('按固定顺序回调七个面，计数从 1 开始', () async {
       final Orchestrator orchestrator = Orchestrator(loadFixture('clean_machine.json'));
       final List<String> calls = <String>[];
       await orchestrator.scan((String surface, int index, int total) {
         calls.add('$surface:$index/$total');
       });
+      // 顺序按「耗时从小到大」排：注册表飞快，计划任务最慢。
+      // 界面上先看到结果、慢的排后面，进度条才不会像卡住。
       expect(calls, <String>[
-        'processes:1/3',
-        'run_keys:2/3',
-        'services:3/3',
+        'processes:1/7',
+        'run_keys:2/7',
+        'services:3/7',
+        'registry_payloads:4/7',
+        'drivers:5/7',
+        'file_drops:6/7',
+        'scheduled_tasks:7/7',
       ]);
     });
 
-    test('kScanOrder 与 spec 的三段一致', () {
-      expect(kScanOrder, <String>['processes', 'run_keys', 'services']);
+    test('kScanOrder 覆盖一期三段与二期四个深扫面', () {
+      expect(kScanOrder, <String>[
+        'processes',
+        'run_keys',
+        'services',
+        'registry_payloads',
+        'drivers',
+        'file_drops',
+        'scheduled_tasks',
+      ]);
     });
   });
 

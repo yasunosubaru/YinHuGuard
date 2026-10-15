@@ -138,6 +138,51 @@ int32_t yh_scan_services(void* handle, YhFindingList* out) {
   return yh::internal::ScanServices(OptionsOf(engine->config), nullptr, out);
 }
 
+int32_t yh_scan_registry_payloads(void* handle, YhFindingList* out) {
+  if (out == nullptr) {
+    yh::internal::SetLastErrorText("输出列表为空");
+    return 1;
+  }
+  out->items = nullptr;
+  out->count = 0;
+  yh::internal::SetLastErrorText("");
+  return yh::internal::ScanRegistryPayloads(out);
+}
+
+int32_t yh_scan_drivers(void* handle, YhFindingList* out) {
+  Engine* engine = AsEngine(handle);
+  if (engine == nullptr || out == nullptr) {
+    yh::internal::SetLastErrorText("扫描驱动参数无效");
+    return 1;
+  }
+  out->items = nullptr;
+  out->count = 0;
+  yh::internal::SetLastErrorText("");
+  return yh::internal::ScanDrivers(out, OptionsOf(engine->config));
+}
+
+int32_t yh_scan_file_drops(void* handle, YhFindingList* out) {
+  if (out == nullptr) {
+    yh::internal::SetLastErrorText("输出列表为空");
+    return 1;
+  }
+  out->items = nullptr;
+  out->count = 0;
+  yh::internal::SetLastErrorText("");
+  return yh::internal::ScanFileDrops(out);
+}
+
+int32_t yh_scan_scheduled_tasks(void* handle, YhFindingList* out) {
+  if (out == nullptr) {
+    yh::internal::SetLastErrorText("输出列表为空");
+    return 1;
+  }
+  out->items = nullptr;
+  out->count = 0;
+  yh::internal::SetLastErrorText("");
+  return yh::internal::ScanScheduledTasks(out);
+}
+
 const char* yh_last_error(void) { return yh::internal::GetLastErrorText(); }
 
 void yh_finding_list_free(YhFindingList* list) { yh::internal::FreeFindingList(list); }

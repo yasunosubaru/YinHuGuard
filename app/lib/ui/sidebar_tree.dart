@@ -19,6 +19,11 @@ const List<SurfaceEntry> kSurfaceEntries = <SurfaceEntry>[
   SurfaceEntry('processes', kSurfaceProcesses, kSurfaceProcessesSub),
   SurfaceEntry('run_keys', kSurfaceRunKeys, kSurfaceRunKeysSub),
   SurfaceEntry('services', kSurfaceServices, kSurfaceServicesSub),
+  // ---- 二期深度扫描 ----
+  SurfaceEntry('registry_payloads', kSurfaceRegistryPayloads, kSurfaceRegistryPayloadsSub),
+  SurfaceEntry('drivers', kSurfaceDrivers, kSurfaceDriversSub),
+  SurfaceEntry('file_drops', kSurfaceFileDrops, kSurfaceFileDropsSub),
+  SurfaceEntry('scheduled_tasks', kSurfaceScheduledTasks, kSurfaceScheduledTasksSub),
 ];
 
 class SidebarTree extends StatelessWidget {

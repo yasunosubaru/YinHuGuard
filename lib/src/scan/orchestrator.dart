@@ -15,7 +15,18 @@ import '../model/self_check.dart';
 import '../source/observation_source.dart';
 
 /// 三个扫描面的固定顺序。
-const List<String> kScanOrder = <String>['processes', 'run_keys', 'services'];
+const List<String> kScanOrder = <String>[
+  'processes',
+  'run_keys',
+  'services',
+  // ---- 二期深度扫描 ----
+  // 顺序按「耗时从小到大」排：注册表飞快，计划任务最慢。
+  // 界面上先看到结果再出慢的那几个面，进度条才不会像是卡住了。
+  'registry_payloads',
+  'drivers',
+  'file_drops',
+  'scheduled_tasks',
+];
 
 class ScanResult {
   final SelfCheck selfCheck;
@@ -70,6 +81,10 @@ class Orchestrator {
         'processes' => await source.scanProcesses(),
         'run_keys' => await source.scanRunKeys(),
         'services' => await source.scanServices(),
+        'registry_payloads' => await source.scanRegistryPayloads(),
+        'drivers' => await source.scanDrivers(),
+        'file_drops' => await source.scanFileDrops(),
+        'scheduled_tasks' => await source.scanScheduledTasks(),
         _ => throw StateError('kScanOrder 里出现了未处理的扫描面: $surface'),
       };
       observations.addAll(batch);

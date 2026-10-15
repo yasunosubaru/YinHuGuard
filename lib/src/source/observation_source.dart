@@ -27,4 +27,10 @@ abstract interface class ObservationSource {
   Future<List<Observation>> scanProcesses();
   Future<List<Observation>> scanRunKeys();
   Future<List<Observation>> scanServices();
+
+  // ---- 二期深度扫描 ----
+  Future<List<Observation>> scanRegistryPayloads();
+  Future<List<Observation>> scanDrivers();
+  Future<List<Observation>> scanFileDrops();
+  Future<List<Observation>> scanScheduledTasks();
 }

@@ -30,29 +30,41 @@ Observation obs({
 
 void main() {
   group('取值集合', () {
-    test('surface 只接受 spec 规定的三值', () {
-      expect(kSurfaces, <String>['processes', 'run_keys', 'services']);
+    test('surface 只接受规定的值（一期三段 + 二期四个深扫面）', () {
+      expect(kSurfaces, <String>[
+        'processes',
+        'run_keys',
+        'services',
+        'registry_payloads',
+        'drivers',
+        'file_drops',
+        'scheduled_tasks',
+      ]);
     });
 
-    test('criteria 只接受 spec 规定的三值', () {
+    test('criteria 只接受规定的值', () {
       expect(kCriteria, <String>[
         'file_attr_hs',
         'service_interpreter',
         'service_path_heuristic',
+        'name_match',
+        'path_heuristic',
       ]);
     });
 
     test('未知 surface 抛异常而不是静默接受', () {
       // release 构建会把 assert 编译掉，所以这里必须是真异常。
+      // 注意别拿二期新增的面（drivers / file_drops 等）当「未知」值 ——
+      // 它们现在是合法的，那样测会变成恒假。
       expect(
-        () => obs(surface: 'drivers'),
+        () => obs(surface: 'unknown_surface'),
         throwsA(isA<ArgumentError>()),
       );
     });
 
     test('未知 criteria 抛异常而不是静默接受', () {
       expect(
-        () => obs(criteria: 'name_match'),
+        () => obs(criteria: 'name_match_typo'),
         throwsA(isA<ArgumentError>()),
       );
     });

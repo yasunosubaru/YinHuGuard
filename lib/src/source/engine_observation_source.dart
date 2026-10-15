@@ -67,6 +67,11 @@ List<Map<String, dynamic>> _scanInIsolate(_ScanRequest request) {
         'processes' => bindings.scanProcesses(engine, list),
         'run_keys' => bindings.scanRunKeys(engine, list),
         'services' => bindings.scanServices(engine, list),
+        // ---- 二期深度扫描 ----
+        'registry_payloads' => bindings.scanRegistryPayloads(engine, list),
+        'drivers' => bindings.scanDrivers(engine, list),
+        'file_drops' => bindings.scanFileDrops(engine, list),
+        'scheduled_tasks' => bindings.scanScheduledTasks(engine, list),
         _ => throw ArgumentError.value(request.surface, 'surface', '未知扫描面'),
       };
       if (code != kOk) {
@@ -152,13 +157,26 @@ class EngineObservationSource implements ObservationSource {
   }
 
   @override
+  Future<List<Observation>> scanServices() => _scan('services');
+
+  // ---- 二期深度扫描 ----
+  @override
+  Future<List<Observation>> scanRegistryPayloads() => _scan('registry_payloads');
+
+  @override
   Future<List<Observation>> scanProcesses() => _scan('processes');
 
   @override
   Future<List<Observation>> scanRunKeys() => _scan('run_keys');
 
   @override
-  Future<List<Observation>> scanServices() => _scan('services');
+  Future<List<Observation>> scanDrivers() => _scan('drivers');
+
+  @override
+  Future<List<Observation>> scanFileDrops() => _scan('file_drops');
+
+  @override
+  Future<List<Observation>> scanScheduledTasks() => _scan('scheduled_tasks');
 
   @override
   Future<SelfCheck> selfCheck() async {

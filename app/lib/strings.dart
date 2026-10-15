@@ -28,6 +28,20 @@ const String kSurfaceProcessesSub = '对应上游 扫描1/3';
 const String kSurfaceRunKeysSub = '对应上游 扫描2/3';
 const String kSurfaceServicesSub = '对应上游 扫描3/3';
 
+// ---- 二期深度扫描的面 ----
+
+const String kSurfaceRegistryPayloads = '注册表载荷';
+const String kSurfaceRegistryPayloadsSub = '不是启动项，只删启动项会复发';
+
+const String kSurfaceDrivers = '驱动服务';
+const String kSurfaceDriversSub = 'BYOVD 全有合法签名，按已知名单认';
+
+const String kSurfaceFileDrops = '文件落点';
+const String kSurfaceFileDropsSub = '已知路径与已知文件名';
+
+const String kSurfaceScheduledTasks = '计划任务';
+const String kSurfaceScheduledTasksSub = '走 Task Scheduler COM，耗时最长';
+
 // ---- 自检面板 ----
 
 const String kSelfCheckTitle = '本次扫描的覆盖范围';
@@ -109,6 +123,9 @@ const Map<String, String> kCriteriaLabels = <String, String>{
   'file_attr_hs': '文件带隐藏/系统属性',
   'service_interpreter': '服务路径含解释器调用',
   'service_path_heuristic': '服务路径不在系统目录',
+  // ---- 二期 ----
+  'name_match': '命中已知威胁名单',
+  'path_heuristic': '位置不在预期目录',
 };
 
 // ---- 导出与日志 ----

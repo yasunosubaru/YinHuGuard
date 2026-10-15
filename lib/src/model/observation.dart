@@ -7,14 +7,33 @@
 // C++ 里写的是字面量，Dart 这边不认任何别的值。这里**抛异常**而不是用 assert，
 // 因为 release 构建会把 assert 编译掉，那正好是本项目最忌讳的「静默接受坏数据」。
 
-/// 三个扫描面，与 spec §4.1–4.3 及上游 bat 的三段一一对应。
-const List<String> kSurfaces = <String>['processes', 'run_keys', 'services'];
+// 三个扫描面，与 spec §4.1–4.3 及上游 bat 的三段一一对应。
+const List<String> kSurfaces = <String>[
+  'processes',
+  'run_keys',
+  'services',
+  // ---- 二期深度扫描 ----
+  // 4) 注册表内存储载荷 —— 不是启动项，但只删启动项不删载荷，重启就回来了。
+  'registry_payloads',
+  // 5) 驱动服务 —— BYOVD 全有合法签名，只能靠已知文件名认。
+  'drivers',
+  // 6) 文件落点。
+  'file_drops',
+  // 7) 计划任务 —— 走 Task Scheduler COM。
+  'scheduled_tasks',
+];
 
-/// 三类判据。服务判据有两条，文件属性类共用一条。
+/// 判据。服务类有两条，其余几类共用。
 const List<String> kCriteria = <String>[
   'file_attr_hs',
   'service_interpreter',
   'service_path_heuristic',
+  // ---- 二期新增 ----
+  // 命中 IOC 表里的已知名字（驱动名、任务名、注册表值名、完整文件路径）。
+  'name_match',
+  // 位置不对：该在 System32\drivers 的驱动跑去了别处、任务 action 不在
+  // System32 等。
+  'path_heuristic',
 ];
 
 /// JSON 用 snake_case（与 rules.json、报告格式一致），Dart 用 camelCase。

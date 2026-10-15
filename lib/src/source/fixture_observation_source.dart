@@ -15,6 +15,7 @@ import '../model/observation.dart';
 import '../model/self_check.dart';
 import 'observation_source.dart';
 
+/// 覆盖全部七个扫描面（含二期深度扫描）。fixture 里没有的面返回空列表。
 class FixtureObservationSource implements ObservationSource {
   final Map<String, dynamic> _json;
 
@@ -57,6 +58,21 @@ class FixtureObservationSource implements ObservationSource {
 
   @override
   Future<List<Observation>> scanServices() async => _forSurface('services');
+
+  // ---- 二期深度扫描 ----
+  @override
+  Future<List<Observation>> scanRegistryPayloads() async =>
+      _forSurface('registry_payloads');
+
+  @override
+  Future<List<Observation>> scanDrivers() async => _forSurface('drivers');
+
+  @override
+  Future<List<Observation>> scanFileDrops() async => _forSurface('file_drops');
+
+  @override
+  Future<List<Observation>> scanScheduledTasks() async =>
+      _forSurface('scheduled_tasks');
 
   @override
   Future<SelfCheck> selfCheck() async => selfCheckValue;

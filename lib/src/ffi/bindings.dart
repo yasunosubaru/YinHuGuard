@@ -96,7 +96,7 @@ typedef _FindingListFreeDart = void Function(Pointer<YhFindingList>);
 typedef _StringFreeC = Void Function(Pointer<Utf8>);
 typedef _StringFreeDart = void Function(Pointer<Utf8>);
 
-/// 已解析好的九个符号。一次 open 只建一次。
+/// 已解析好的 13 个符号。一次 open 只建一次。
 class EngineBindings {
   /// 持有 DynamicLibrary 引用是**必须的**，不是冗余：函数指针指向它的代码段，
   /// 一旦这里不再引用而被卸载，之后调用那些函数指针就是野指针。
@@ -108,6 +108,11 @@ class EngineBindings {
   final _ScanDart scanProcesses;
   final _ScanDart scanRunKeys;
   final _ScanDart scanServices;
+  // ---- 二期深度扫描 ----
+  final _ScanDart scanRegistryPayloads;
+  final _ScanDart scanDrivers;
+  final _ScanDart scanFileDrops;
+  final _ScanDart scanScheduledTasks;
   final _LastErrorDart lastError;
   final _FindingListFreeDart findingListFree;
   final _StringFreeDart stringFree;
@@ -120,12 +125,16 @@ class EngineBindings {
     this.scanProcesses,
     this.scanRunKeys,
     this.scanServices,
+    this.scanRegistryPayloads,
+    this.scanDrivers,
+    this.scanFileDrops,
+    this.scanScheduledTasks,
     this.lastError,
     this.findingListFree,
     this.stringFree,
   );
 
-  /// 打开引擎 DLL。九个符号缺任何一个都直接抛 —— 缺符号说明 DLL 版本不对，
+  /// 打开引擎 DLL。13 个符号缺任何一个都直接抛 —— 缺符号说明 DLL 版本不对，
   /// 继续跑下去只会得到「什么都扫不到」这个最坏的假象。
   factory EngineBindings.open(String dllPath) {
     final DynamicLibrary library = DynamicLibrary.open(dllPath);
@@ -137,6 +146,10 @@ class EngineBindings {
       library.lookupFunction<_ScanC, _ScanDart>('yh_scan_processes'),
       library.lookupFunction<_ScanC, _ScanDart>('yh_scan_run_keys'),
       library.lookupFunction<_ScanC, _ScanDart>('yh_scan_services'),
+      library.lookupFunction<_ScanC, _ScanDart>('yh_scan_registry_payloads'),
+      library.lookupFunction<_ScanC, _ScanDart>('yh_scan_drivers'),
+      library.lookupFunction<_ScanC, _ScanDart>('yh_scan_file_drops'),
+      library.lookupFunction<_ScanC, _ScanDart>('yh_scan_scheduled_tasks'),
       library.lookupFunction<_LastErrorC, _LastErrorDart>('yh_last_error'),
       library.lookupFunction<_FindingListFreeC, _FindingListFreeDart>('yh_finding_list_free'),
       library.lookupFunction<_StringFreeC, _StringFreeDart>('yh_string_free'),
