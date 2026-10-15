@@ -71,6 +71,11 @@ class _BootstrapState extends State<_Bootstrap> {
   String? _error;
   bool _elevateAttempted = false;
 
+  /// 提权状态只在 initState 问一次。
+  /// 之前放在 build() 里 —— 每重建一次就开一次进程 token，而符号解析失败
+  /// 会直接抛异常把整个窗口带成白屏。
+  late final bool _elevated = isElevated();
+
   @override
   void initState() {
     super.initState();
@@ -162,7 +167,7 @@ class _BootstrapState extends State<_Bootstrap> {
               userAllowlist: _loadAllowlist(),
               elevateAttempted: _elevateAttempted,
               // 未提权时才提供提权入口；已提权则界面会给「覆盖完整」的提示。
-              onElevate: isElevated() ? null : _elevate,
+              onElevate: _elevated ? null : _elevate,
             ),
           ),
           Material(

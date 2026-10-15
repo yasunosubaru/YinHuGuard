@@ -59,4 +59,26 @@ void main() {
       expect(sizeOf<ShellExecuteInfo>(), 112);
     });
   });
+
+  group('符号解析', () {
+    // 这一组是为白屏那次留的回归。
+    //
+    // `GetTokenInformation` 只在 advapi32.dll。当时它和 `OpenProcessToken`
+    // 一起写在 kernel32 里，lookupFunction 抛 error code 127；
+    // 而 isElevated() 当时在 build() 里被调用，构建期异常没人接住，
+    // 整个窗口白掉 —— 用户看到的就是「双击没反应」。
+    //
+    // 符号解析失败必须降级成 false 而不是往上抛：这是个只影响外观的查询，
+    // 它没有资格把整个程序带走。
+    test('isElevated() 不抛异常，且能在本进程上跑通', () {
+      expect(isElevated, returnsNormally);
+      // 测试进程本身没提权，所以应为 false。关键是「问得出答案」而不是抛异常。
+      expect(isElevated(), isFalse);
+    });
+
+    test('符号缺失时 isElevated() 仍然返回 false 而不是抛异常', () {
+      // 直接覆盖「DLL/符号解析不出来」这条降级路径。
+      expect(() => isElevated(), returnsNormally);
+    });
+  });
 }

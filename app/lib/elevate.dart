@@ -107,55 +107,165 @@ final class ShellExecuteInfo extends Struct {
   external int hProcess;
 }
 
+/// Win32 符号解析。
+///
+/// **DLL 归属踩过的坑**：`GetTokenInformation` 只在 **advapi32.dll**，
+/// kernel32 里没有（实测：`OpenProcessToken` 在 kernel32 有转发导出所以
+/// 侥幸查得到，掩盖了归属写错这件事；`GetTokenInformation` 则直接
+/// `lookupFunction` 抛 error code 127）。当时两个都写在 kernel32，
+/// 而 `isElevated()` 又是在 `build()` 里调的 —— 构建期抛异常没人接住，
+/// 整个窗口白屏，用户看到的就是「双击没反应」。
+///
+/// 所以这里全部惰性解析 + 失败置空：解析不出来就降级，让调用点判空，
+/// 而不是让构造函数抛出去把整个界面带走。
 class _Api {
-  final DynamicLibrary _lib = DynamicLibrary.open('kernel32.dll');
-  final DynamicLibrary _shell32 = DynamicLibrary.open('shell32.dll');
+  _GetCurrentProcessDart? _getCurrentProcess;
+  _OpenProcessTokenDart? _openProcessToken;
+  _GetTokenInformationDart? _getTokenInformation;
+  _CloseHandleDart? _closeHandle;
+  _GetLastErrorDart? _getLastError;
+  _ShellExecuteExDart? _shellExecuteEx;
 
-  late final _GetCurrentProcessDart getCurrentProcess =
-      _lib.lookupFunction<_GetCurrentProcessC, _GetCurrentProcessDart>(
-          'GetCurrentProcess');
-  late final _OpenProcessTokenDart openProcessToken =
-      _lib.lookupFunction<_OpenProcessTokenC, _OpenProcessTokenDart>(
-          'OpenProcessToken');
-  late final _GetTokenInformationDart getTokenInformation =
-      _lib.lookupFunction<_GetTokenInformationC, _GetTokenInformationDart>(
-          'GetTokenInformation');
-  late final _CloseHandleDart closeHandle =
-      _lib.lookupFunction<_CloseHandleC, _CloseHandleDart>('CloseHandle');
-  late final _GetLastErrorDart getLastError =
-      _lib.lookupFunction<_GetLastErrorC, _GetLastErrorDart>('GetLastError');
-  late final _ShellExecuteExDart shellExecuteEx =
-      _shell32.lookupFunction<_ShellExecuteExC, _ShellExecuteExDart>(
-          'ShellExecuteExW');
+  factory _Api() {
+    DynamicLibrary? tryOpen(String name) {
+      try {
+        return DynamicLibrary.open(name);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    // token 查询的两个符号来自 **advapi32**，不是 kernel32。
+    final DynamicLibrary? kernel32 = tryOpen('kernel32.dll');
+    final DynamicLibrary? advapi32 = tryOpen('advapi32.dll');
+    final DynamicLibrary? shell32 = tryOpen('shell32.dll');
+
+    // 每个符号单独 try：某一个查不到不该连累其余的，更不该连累整个构造函数。
+    // lookupFunction 的首参必须是原生函数类型，没法写成泛型，所以逐个写。
+    _GetCurrentProcessDart? p1;
+    _CloseHandleDart? p2;
+    _GetLastErrorDart? p3;
+    if (kernel32 != null) {
+      try {
+        p1 = kernel32.lookupFunction<_GetCurrentProcessC, _GetCurrentProcessDart>(
+            'GetCurrentProcess');
+      } catch (_) {
+        // 忽略
+      }
+      try {
+        p2 = kernel32.lookupFunction<_CloseHandleC, _CloseHandleDart>('CloseHandle');
+      } catch (_) {
+        // 忽略
+      }
+      try {
+        p3 = kernel32.lookupFunction<_GetLastErrorC, _GetLastErrorDart>('GetLastError');
+      } catch (_) {
+        // 忽略
+      }
+    }
+
+    _OpenProcessTokenDart? p4;
+    _GetTokenInformationDart? p5;
+    if (advapi32 != null) {
+      try {
+        p4 = advapi32.lookupFunction<_OpenProcessTokenC, _OpenProcessTokenDart>(
+            'OpenProcessToken');
+      } catch (_) {
+        // 忽略
+      }
+      try {
+        p5 = advapi32.lookupFunction<_GetTokenInformationC, _GetTokenInformationDart>(
+            'GetTokenInformation');
+      } catch (_) {
+        // 忽略
+      }
+    }
+
+    _ShellExecuteExDart? p6;
+    if (shell32 != null) {
+      try {
+        p6 = shell32.lookupFunction<_ShellExecuteExC, _ShellExecuteExDart>(
+            'ShellExecuteExW');
+      } catch (_) {
+        // 忽略
+      }
+    }
+
+    return _Api._(
+      getCurrentProcess: p1,
+      openProcessToken: p4,
+      getTokenInformation: p5,
+      closeHandle: p2,
+      getLastError: p3,
+      shellExecuteEx: p6,
+    );
+  }
+
+  _Api._({
+    required _GetCurrentProcessDart? getCurrentProcess,
+    required _OpenProcessTokenDart? openProcessToken,
+    required _GetTokenInformationDart? getTokenInformation,
+    required _CloseHandleDart? closeHandle,
+    required _GetLastErrorDart? getLastError,
+    required _ShellExecuteExDart? shellExecuteEx,
+  })  : _getCurrentProcess = getCurrentProcess,
+        _openProcessToken = openProcessToken,
+        _getTokenInformation = getTokenInformation,
+        _closeHandle = closeHandle,
+        _getLastError = getLastError,
+        _shellExecuteEx = shellExecuteEx;
+
+  bool get canQueryElevation =>
+      _getCurrentProcess != null &&
+      _openProcessToken != null &&
+      _getTokenInformation != null &&
+      _closeHandle != null;
+
+  bool get canRelaunchElevated =>
+      _shellExecuteEx != null && _getLastError != null && _closeHandle != null;
 }
 
 _Api? _api;
 _Api get _apiInstance => _api ??= _Api();
 
 /// 当前进程是否已提权。
+///
+/// **绝不抛异常**。这个函数会在界面构建期间被调用，一次未捕获异常就足以
+/// 让整个窗口白掉（这正是白屏那次的原因）。解析不到符号、开不出 token、
+/// 查询失败，一律按「未提权」处理 —— 宁可少报权限，不可多报，也绝不可
+/// 因为一个只影响外观的查询把整个程序带崩。
 bool isElevated() {
-  final _Api api = _apiInstance;
-  final Pointer<IntPtr> token = calloc<IntPtr>();
   try {
-    if (api.openProcessToken(api.getCurrentProcess(), _tokenQuery, token) == 0) {
-      return false;  // 问不出来就按未提权处理：宁可少报权限，不可多报
+    final _Api api = _apiInstance;
+    if (!api.canQueryElevation) {
+      return false;
     }
-    final Pointer<Int32> elevated = calloc<Int32>();
-    final Pointer<Uint32> returned = calloc<Uint32>();
+    final Pointer<IntPtr> token = calloc<IntPtr>();
     try {
-      // TOKEN_ELEVATION 就是一个 int32
-      final int ok = api.getTokenInformation(
-          token.value, _tokenElevation, elevated.cast<Void>(), 4, returned);
-      return ok != 0 && elevated.value != 0;
+      if (api._openProcessToken!(
+              api._getCurrentProcess!(), _tokenQuery, token) ==
+          0) {
+        return false;
+      }
+      final Pointer<Int32> elevated = calloc<Int32>();
+      final Pointer<Uint32> returned = calloc<Uint32>();
+      try {
+        // TOKEN_ELEVATION 就是一个 int32
+        final int ok = api._getTokenInformation!(
+            token.value, _tokenElevation, elevated.cast<Void>(), 4, returned);
+        return ok != 0 && elevated.value != 0;
+      } finally {
+        calloc.free(elevated);
+        calloc.free(returned);
+      }
     } finally {
-      calloc.free(elevated);
-      calloc.free(returned);
+      if (token.value != 0) {
+        api._closeHandle!(token.value);
+      }
+      calloc.free(token);
     }
-  } finally {
-    if (token.value != 0) {
-      api.closeHandle(token.value);
-    }
-    calloc.free(token);
+  } catch (_) {
+    return false;
   }
 }
 
@@ -172,6 +282,9 @@ enum ElevateResult {
 
 ElevateResult relaunchElevated(List<String> args, {required String exePath}) {
   final _Api api = _apiInstance;
+  if (!api.canRelaunchElevated) {
+    return ElevateResult.failed;
+  }
   final List<String> relaunchArgs = buildRelaunchArgs(args);
 
   final Pointer<ShellExecuteInfo> info = calloc<ShellExecuteInfo>();
@@ -191,15 +304,15 @@ ElevateResult relaunchElevated(List<String> args, {required String exePath}) {
       ..lpDirectory = dir
       ..nShow = _swShowNormal;
 
-    final int ok = api.shellExecuteEx(info);
+    final int ok = api._shellExecuteEx!(info);
     if (ok != 0) {
       // 新实例已经起来，不必等它；当前实例该退出。
       if (info.ref.hProcess != 0) {
-        api.closeHandle(info.ref.hProcess);
+        api._closeHandle!(info.ref.hProcess);
       }
       return ElevateResult.launched;
     }
-    if (api.getLastError() == _errorCancelled) {
+    if (api._getLastError!() == _errorCancelled) {
       return ElevateResult.cancelled;
     }
     return ElevateResult.failed;
