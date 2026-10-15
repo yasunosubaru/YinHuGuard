@@ -61,3 +61,28 @@
 CLI 模式目前仍会初始化 Flutter 引擎（Windows GUI 子系统程序的 embedder 会
 先建窗口再跑 Dart），因此命令行下 stderr 会出现一条 Impeller 渲染后端信息。
 功能不受影响；彻底干净的 CLI 需要独立的控制台可执行文件，留二期。
+
+### GUI 白屏（已修）
+
+首版双击后窗口全白、标题显示为项目名 `yinhuguard_app`，用户看到的就是「双击没反应」。
+
+根因：`GetTokenInformation` 只在 **advapi32.dll**，当时与 `OpenProcessToken` 一起写在
+kernel32 里（后者在 kernel32 有转发导出所以侥幸查得到，掩盖了归属写错这件事）。
+`lookupFunction` 抛 error code 127，而 `isElevated()` 当时是在 `build()` 里被调用的——
+构建期未捕获异常，把整个窗口带成空白。
+
+三处一起修：
+
+1. 符号归属改为 advapi32，并逐个符号独立解析——某一个查不到不再连累其余的
+2. `isElevated()` 改为**绝不抛异常**：解析不到符号、开不出 token、查询失败一律按
+   「未提权」处理。一个只影响外观的查询，没有资格把整个程序带走
+3. 提权状态从 `build()` 移到 `initState`，避免每次重建都开一次进程 token
+
+窗口标题改为 `YinHuGuard`。新增两条回归测试断言 `isElevated()` 不抛异常。
+
+### 流程教训
+
+**GUI 路径此前一次都没有被执行过**——交付前只验证了 CLI，而
+`flutter build windows` 与所有单元测试都不会执行 `build()`。
+「构建期静默失败到整窗白屏」这类问题只有真跑一次才会暴露。
+今后任何交付都必须**至少启动一次 GUI 并截图**，而不只是确认它能构建。
