@@ -122,6 +122,13 @@ void test_expand_env_vars() {
   assert(expand_env_vars("%NOSUCHVAR_XYZ%\\x.exe", &ok) == "%NOSUCHVAR_XYZ%\\x.exe");
   assert(!ok);  // 未知变量保持原样并标记未完全展开
 
+  // 回归：`%%TEMP%` 这类配对会被手写的 %VAR% 识别漏掉。漏掉的方向必须是
+  // 「未覆盖」而不是「文件不存在」—— 后者会让 run_keys 把整条启动项静默丢掉，
+  // 而 spec §4.2 明确禁止静默丢弃。多报一条未覆盖只是噪音。
+  ok = true;
+  (void)expand_env_vars("%%TEMP%\\x.exe", &ok);
+  assert(!ok);
+
   // 无 %VAR% 时不算「未完全展开」
   assert(expand_env_vars("C:\\Windows\\x.exe", &ok) == "C:\\Windows\\x.exe");
   assert(ok);
@@ -179,6 +186,52 @@ void test_is_hard_allowlisted() {
 
 // ---- 运行器 --------------------------------------------------------------
 
+// 服务 ImagePath 的归类。**这一组是本项目最该有的一组测试。**
+//
+// 曾经把 strip_quotes_and_args 的结果喂给 matches_interpreter，于是
+// `cmd.exe /c a.bat` 被截成 `cmd.exe`、`/c` 没了、解释器判据永远不命中，
+// 再落到路径前缀判定（System32 内）就 continue 掉 —— 一个有
+// `cmd /c` 的服务被判成干净。两个单元函数各自都对，分开测也都绿，
+// 错只在组合里，而组合原来只存在于不能在本机运行的扫描文件里。
+// 所以这里逐字用 fixture 里那条真实写法当回归断言。
+void test_classify_service_path() {
+  const std::vector<std::string> kw = {"cmd /c",   "powershell", "wscript",
+                                       "cscript",  "mshta",      "pwsh"};
+  const std::vector<std::string> prefixes = {"C:\\Windows\\System32",
+                                             "C:\\Windows\\SysWOW64"};
+
+  // 回归：fixture 里 TCLService 的那条值，逐字。
+  assert(classify_service_path(
+             "C:\\Windows\\System32\\cmd.exe /c \"C:\\Users\\Public\\Documents\\WindowsData\\a.bat\"",
+             kw, prefixes) == "service_interpreter");
+  // 不带引号的常见写法
+  assert(classify_service_path("C:\\Windows\\System32\\cmd.exe /c foo.bat", kw, prefixes) ==
+         "service_interpreter");
+  // 带引号的 shell 路径
+  assert(classify_service_path("\"C:\\a\\cmd.exe\" /c x.bat", kw, prefixes) ==
+         "service_interpreter");
+  assert(classify_service_path("C:\\Windows\\System32\\powershell.exe -enc AAAA", kw, prefixes) ==
+         "service_interpreter");
+
+  // 路径合理性：不在 System32 / SysWOW64 下的服务
+  assert(classify_service_path("C:\\ProgramData\\quickScreenShot\\CleverSoar.exe", kw, prefixes) ==
+         "service_path_heuristic");
+  assert(classify_service_path("C:\\Users\\Public\\WindowsData\\x.exe", kw, prefixes) ==
+         "service_path_heuristic");
+
+  // 干净服务：系统目录下的普通服务，带与不带参数都算干净
+  assert(classify_service_path("C:\\Windows\\System32\\svchost.exe -k netsvcs", kw, prefixes)
+             .empty());
+  assert(classify_service_path("C:\\Windows\\System32\\services.exe", kw, prefixes).empty());
+  assert(classify_service_path("C:\\Windows\\SysWOW64\\svchost.exe -k swprv", kw, prefixes)
+             .empty());
+  // 裸 cmd.exe 没有 /c，不算解释器调用；路径又在 System32 内 → 干净
+  assert(classify_service_path("C:\\Windows\\System32\\cmd.exe", kw, prefixes).empty());
+
+  // 空输入不该被判成命中
+  assert(classify_service_path("", kw, prefixes).empty());
+}
+
 using TestFn = void (*)();
 
 struct TestCase {
@@ -194,6 +247,7 @@ const TestCase kCases[] = {
     {"has_hidden_or_system", test_has_hidden_or_system},
     {"path_in_prefixes", test_path_in_prefixes},
     {"is_hard_allowlisted", test_is_hard_allowlisted},
+    {"classify_service_path", test_classify_service_path},
 };
 
 }  // namespace

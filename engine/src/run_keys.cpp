@@ -131,6 +131,7 @@ int32_t ScanRunKeys(YhFindingList* findings) {
         if (!AppendFinding(findings, locator.c_str(), expanded.c_str(), "file_attr_hs",
                            /*attributes_verified=*/false, /*hidden=*/false, /*system=*/false,
                            /*elevation_required=*/false, /*covered=*/false)) {
+          ::RegCloseKey(key);
           FreeFindingList(findings);
           SetLastErrorText("追加启动项发现时内存分配失败");
           return 2;

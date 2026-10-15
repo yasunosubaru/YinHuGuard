@@ -13,6 +13,7 @@
 
 import 'dart:io';
 
+import '../criteria/evaluator.dart';
 import '../criteria/redact.dart';
 import '../model/finding.dart';
 import '../scan/orchestrator.dart';
@@ -51,10 +52,21 @@ Future<File> writeScanLog(
   out.writeln('Session 0 可见进程: ${result.selfCheck.session0Visible}');
   out.writeln('服务总数: ${result.selfCheck.servicesTotal}');
   out.writeln('取到 ImagePath 的服务: ${result.selfCheck.servicesWithPath}');
-  if (result.selfCheck.sessionZeroUncovered) {
+  if (result.selfCheck.coverageIncomplete(uncoveredCountOf(result.findings))) {
     out.writeln();
-    out.writeln('!! 未提权，且 Session 0 进程路径一条都没取到。');
-    out.writeln('!! 本结论**不覆盖系统进程**，不能据此判断机器干净。');
+    out.writeln('!! 本次扫描的覆盖范围不完整。');
+    if (!result.selfCheck.elevated) {
+      out.writeln('!! 未提权，Session 0 的进程路径读不到，系统进程这一整块没有被检查。');
+    }
+    if (result.selfCheck.hasUnresolvedProcesses) {
+      out.writeln('!! 有 ${result.selfCheck.processTotal - result.selfCheck.processPathResolved} '
+          '个进程取不到路径，它们没有被检查。');
+    }
+    if (result.selfCheck.hasUnresolvedServices) {
+      out.writeln('!! 有 ${result.selfCheck.servicesTotal - result.selfCheck.servicesWithPath} '
+          '个服务取不到 ImagePath，它们没有被检查。');
+    }
+    out.writeln('!! 不能据此判断机器干净。');
   }
   out.writeln();
 

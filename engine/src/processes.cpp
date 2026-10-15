@@ -88,15 +88,22 @@ int32_t ScanProcesses(ProcessScanSummary* summary, YhFindingList* findings) {
     const bool resolved = ResolveProcessPath(pid, &wide_path, &access_denied);
 
     const std::string exe_name = WideToUtf8(entry.szExeFile);
+
+    // 解析成功但拿到空串，等同于没解析出来：没有路径就判不了属性，
+    // 而且空串会把去重键压成 ""，之后每一条空路径都被它吃掉，
+    // 整个扫描面塌成一条、然后那一条又过不了属性检查而消失。
+    const std::string utf8_path = resolved ? WideToUtf8(wide_path) : std::string();
+    const bool path_ok = !utf8_path.empty();
+
     std::string locator;
     std::string display_name;
 
-    if (resolved) {
+    if (path_ok) {
       local.process_path_resolved += 1;
       if (IsSessionZero(pid)) {
         local.session0_visible += 1;
       }
-      locator = WideToUtf8(wide_path);
+      locator = utf8_path;
       display_name = exe_name;
     } else {
       locator = exe_name;
@@ -116,20 +123,25 @@ int32_t ScanProcesses(ProcessScanSummary* summary, YhFindingList* findings) {
       bool attributes_verified = false;
       bool covered = true;
 
-      if (resolved) {
+      if (path_ok) {
         const std::wstring wide = Utf8ToWide(locator);
-        const DWORD attrs = wide.empty() ? INVALID_FILE_ATTRIBUTES : ::GetFileAttributesW(wide.c_str());
+        const DWORD attrs =
+            wide.empty() ? INVALID_FILE_ATTRIBUTES : ::GetFileAttributesW(wide.c_str());
         if (attrs == INVALID_FILE_ATTRIBUTES) {
-          // 属性读不出来 —— 不产生发现（判据就是属性），但进程已计入
-          // process_path_resolved，存在性由 summary 保住，不会变成「干净」。
-          more = ::Process32NextW(snapshot, &entry);
-          continue;
-        }
-        attributes_verified = true;
-        if (has_hidden_or_system(static_cast<uint32_t>(attrs))) {
+          // 路径拿到了、属性却读不出来 —— 必须记未覆盖，不能跳过。
+          // 跳过的话这条进程既不出现也不被标未覆盖，而它已经被计进
+          // process_path_resolved（自检看着健康），发现列表却朝空收缩。
+          // 「镜像文件读不出来」本身就是一种持久化手法。
           emit = true;
-          hidden = (attrs & FILE_ATTRIBUTE_HIDDEN) != 0;
-          system = (attrs & FILE_ATTRIBUTE_SYSTEM) != 0;
+          covered = false;
+          attributes_verified = false;
+        } else {
+          attributes_verified = true;
+          if (has_hidden_or_system(static_cast<uint32_t>(attrs))) {
+            emit = true;
+            hidden = (attrs & FILE_ATTRIBUTE_HIDDEN) != 0;
+            system = (attrs & FILE_ATTRIBUTE_SYSTEM) != 0;
+          }
         }
       } else {
         // 未取到路径：这是一条「未覆盖」，必须看得见（spec §5 的 covered 语义）。

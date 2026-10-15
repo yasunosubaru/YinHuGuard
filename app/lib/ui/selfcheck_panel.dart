@@ -17,12 +17,18 @@ import '../strings.dart';
 
 class SelfCheckPanel extends StatelessWidget {
   final SelfCheck? selfCheck;
+
+  /// 未覆盖条目数。面板不能只看 SelfCheck 的计数：自检计数是各面的聚合，
+  /// 而某一条具体项读不出来时那是发现级的证据，聚合数字上看不出来。
+  final int uncoveredCount;
+
   final bool elevateAttempted;
   final VoidCallback? onElevate;
 
   const SelfCheckPanel({
     super.key,
     required this.selfCheck,
+    this.uncoveredCount = 0,
     this.elevateAttempted = false,
     this.onElevate,
   });
@@ -35,6 +41,8 @@ class SelfCheckPanel extends StatelessWidget {
     if (check == null) {
       return const SizedBox.shrink();
     }
+
+    final bool incomplete = check.coverageIncomplete(uncoveredCount);
 
     return Card(
       margin: const EdgeInsets.all(12),
@@ -56,13 +64,13 @@ class SelfCheckPanel extends StatelessWidget {
                   label: kSession0Visible,
                   value: '${check.session0Visible}',
                   // 这个数字是 0 而没提权，就是「系统进程完全没看」。
-                  alert: check.sessionZeroUncovered,
+                  alert: incomplete,
                 ),
                 _Stat(label: kServicesTotal, value: '${check.servicesTotal}'),
                 _Stat(label: kServicesWithPath, value: '${check.servicesWithPath}'),
               ],
             ),
-            if (check.sessionZeroUncovered) ...<Widget>[
+            if (incomplete) ...<Widget>[
               const SizedBox(height: 12),
               Container(
                 width: double.infinity,
@@ -81,7 +89,7 @@ class SelfCheckPanel extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            kSession0WarningTitle,
+                            kCoverageIncompleteTitle,
                             style: theme.textTheme.titleSmall?.copyWith(
                               color: theme.colorScheme.onErrorContainer,
                               fontWeight: FontWeight.bold,
@@ -92,7 +100,9 @@ class SelfCheckPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      kSession0WarningBody,
+                      // 未提权是原因里最要紧的一种，单独给一段具体说法；
+                      // 已提权却仍有条目没检查出来时，用通用那段。
+                      check.elevated ? kUnresolvedRowsBody : kSession0WarningBody,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onErrorContainer,
                       ),
@@ -117,7 +127,7 @@ class SelfCheckPanel extends StatelessWidget {
                   ],
                 ),
               ),
-            ] else if (check.elevated) ...<Widget>[
+            ] else if (check.coverageComplete) ...<Widget>[
               const SizedBox(height: 8),
               Text(
                 kElevatedAlready,

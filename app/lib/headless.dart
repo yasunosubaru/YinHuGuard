@@ -107,9 +107,12 @@ String _summary(ScanResult result, String jsonPath, String logPath) {
   }
   out.writeln();
   out.writeln('发现合计 ${result.findings.length} 条，其中未覆盖 $uncovered 条');
-  if (result.selfCheck.sessionZeroUncovered) {
-    out.writeln('!! 未提权且 Session 0 进程路径一条都没取到。');
-    out.writeln('!! 本结论不覆盖系统进程，不能据此判断机器干净。');
+  if (result.selfCheck.coverageIncomplete(uncoveredCountOf(result.findings))) {
+    out.writeln('!! 本次扫描的覆盖范围不完整。');
+    if (!result.selfCheck.elevated) {
+      out.writeln('!! 未提权，Session 0 的进程路径读不到，系统进程这一整块没有被检查。');
+    }
+    out.writeln('!! 不能据此判断机器干净。');
   }
   for (final Finding f in result.findings) {
     final String flags = <String>[

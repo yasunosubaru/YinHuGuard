@@ -42,11 +42,22 @@ const String kServicesWithPath = '取到 ImagePath 的服务';
 
 /// 全应用最重要的一句话。未提权时 Session 0 的进程路径一条都拿不到，
 /// 而「什么都没查到」会被读成「机器是干净的」——这个误读必须被界面挡住。
-const String kSession0WarningTitle = '系统进程未被覆盖，本结论不完整';
+const String kCoverageIncompleteTitle = '本次扫描的覆盖范围不完整';
+
+/// 未提权的具体说法。
 const String kSession0WarningBody =
     '当前不是管理员权限，Session 0 的进程路径读不到，这部分没有被检查过。\n'
     '「没有发现问题」在这里只意味着「这一部分没看」，不等于机器干净。\n'
     '如需完整结论，请以管理员身份重新扫描。';
+
+/// 已提权、但仍有条目没检查出来时的说法。
+const String kUnresolvedRowsBody =
+    '有进程或服务本次没能检查到（取不到路径、属性或配置）。\n'
+    '下面列表里带「未覆盖」标记的就是这些条目。\n'
+    '「没有发现问题」不包括它们，不能据此判断机器干净。';
+
+/// 兼容旧名，界面标题统一走 kCoverageIncompleteTitle。
+const String kSession0WarningTitle = kCoverageIncompleteTitle;
 
 const String kElevateButton = '以管理员身份重新扫描';
 const String kElevateCancelled = '提权被取消，仍以普通权限运行。系统进程依然未被覆盖。';

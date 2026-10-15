@@ -54,9 +54,16 @@ void main() {
     test('用户名与机器名被脱敏，路径其余部分保留', () async {
       final Orchestrator o = await runFixture('silverfox_sample.json');
       final String text = toJsonReport(o.result, username: kUser, machineName: kMachine);
+
+      // **正向断言**：必须看到占位符真的出现了。
+      // 只断言「原文不出现」是自欺 —— fixture 里本来就没有那些名字的话，
+      // 把 redactPath 整个删掉测试照样绿。
+      expect(text, contains('<USER>'));
+      expect(text, contains('<MACHINE>'));
       expect(text, isNot(contains(kUser)));
       expect(text, isNot(contains(kMachine)));
       // 路径本身不能被动过 —— 它是远程判断该不该动手的唯一依据。
+      expect(text, contains(r'AppData\\Local\\stealth.exe'));
       expect(text, contains(r'Documents\\WindowsData\\QduoQFO.exe'));
     });
 
@@ -117,6 +124,8 @@ void main() {
     test('同样做脱敏', () async {
       final Orchestrator o = await runFixture('silverfox_sample.json');
       final String csv = toCsvReport(o.result, username: kUser, machineName: kMachine);
+      expect(csv, contains('<USER>'));
+      expect(csv, contains('<MACHINE>'));
       expect(csv, isNot(contains(kUser)));
       expect(csv, isNot(contains(kMachine)));
     });
@@ -146,8 +155,25 @@ void main() {
       expect(text, contains('UNCOVERED'));
       expect(text, contains('权限不足'));
       // 未提权 + Session 0 全黑时必须写明不能据此判断干净。
-      expect(text, contains('不覆盖系统进程'));
+      expect(text, contains('覆盖范围不完整'));
+      expect(text, contains('不能据此判断机器干净'));
+    });
+
+    test('日志与报告同样脱敏 —— 它一样会离开这台机器', () async {
+      final Orchestrator o = await runFixture('silverfox_sample.json');
+      final Directory tmp = Directory.systemTemp.createTempSync('yh_log_redact');
+      addTearDown(() => tmp.deleteSync(recursive: true));
+
+      final File file =
+          await writeScanLog(o.result, tmp, username: kUser, machineName: kMachine);
+      final String text = file.readAsStringSync();
+
+      expect(text, contains('<USER>'));
+      expect(text, contains('<MACHINE>'));
       expect(text, isNot(contains(kUser)));
+      expect(text, isNot(contains(kMachine)));
+      // 路径其余部分保留：日志同样要能让对方判断文件到底在哪。
+      expect(text, contains(r'AppData\Local\stealth.exe'));
     });
   });
 

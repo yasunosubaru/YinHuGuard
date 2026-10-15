@@ -245,6 +245,12 @@ class _DashboardPageState extends State<DashboardPage> {
                   children: <Widget>[
                     SelfCheckPanel(
                       selfCheck: orchestrator?.result.selfCheck,
+                      // 传给面板的是发现级的未覆盖总数，不是各面聚合 ——
+                      // 聚合数字上看不出某一条具体项没读出来。
+                      uncoveredCount: uncoveredCounts.values.fold<int>(
+                        0,
+                        (int sum, int n) => sum + n,
+                      ),
                       elevateAttempted: widget.elevateAttempted,
                       onElevate: widget.onElevate,
                     ),

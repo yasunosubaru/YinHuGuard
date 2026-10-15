@@ -234,7 +234,19 @@ std::string expand_env_vars(const std::string& path, bool* expanded_ok) {
     }
     return path;
   }
-  return WideToUtf8(expanded);
+
+  const std::string result = WideToUtf8(expanded);
+
+  // 兜底：展开后 `%` 还在，说明上面的 %VAR% 识别漏掉了某个变量
+  // （`%%TEMP%` 这类配对、或任意奇数个 %）。漏掉的后果不是噪音而是漏报：
+  // 字面量路径必然判不出存在，run_keys 就会把它当成「文件不存在」跳过 ——
+  // spec §4.2 明确禁止这种静默丢弃。
+  // 方向要选对：多报一条未覆盖只是噪音，漏报是漏掉一个启动项。
+  if (expanded_ok && !result.empty() && result.find('%') != std::string::npos &&
+      path.find('%') != std::string::npos) {
+    *expanded_ok = false;
+  }
+  return result;
 }
 
 std::string strip_quotes_and_args(const std::string& image_path) {
@@ -317,6 +329,24 @@ bool is_hard_allowlisted(const std::string& name,
     }
   }
   return false;
+}
+
+std::string classify_service_path(const std::string& image_path,
+                                  const std::vector<std::string>& interpreter_keywords,
+                                  const std::vector<std::string>& path_allow_prefixes) {
+  if (image_path.empty()) {
+    return std::string();
+  }
+  // 先判解释器，而且必须用**原始**字符串：`/c` 这个记号就是判据的全部信号，
+  // 先剥参数会把它连同参数一起删掉。这条曾经是活的 bug，见头文件里的说明。
+  if (matches_interpreter(image_path, interpreter_keywords)) {
+    return std::string("service_interpreter");
+  }
+  // path_in_prefixes 内部自己剥引号与参数，所以这里同样传原始值。
+  if (!path_in_prefixes(image_path, path_allow_prefixes)) {
+    return std::string("service_path_heuristic");
+  }
+  return std::string();
 }
 
 }  // namespace yh

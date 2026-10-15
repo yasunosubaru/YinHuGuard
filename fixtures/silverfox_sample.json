@@ -80,6 +80,30 @@
       "elevation_required": false,
       "covered": true,
       "timestamp": 1791945605.0
+    },
+    {
+      "surface": "processes",
+      "locator": "C:\\Users\\zhangwei\\AppData\\Local\\stealth.exe",
+      "display_name": "stealth.exe",
+      "criteria": "file_attr_hs",
+      "attributes_verified": true,
+      "hidden": true,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945606.0
+    },
+    {
+      "surface": "run_keys",
+      "locator": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\OnShare",
+      "display_name": "\\\\TEST-PC\\share\\payload.exe",
+      "criteria": "file_attr_hs",
+      "attributes_verified": true,
+      "hidden": true,
+      "system": false,
+      "elevation_required": false,
+      "covered": true,
+      "timestamp": 1791945607.0
     }
   ]
 }

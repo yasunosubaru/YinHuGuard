@@ -85,8 +85,56 @@ void main() {
       expect(orchestrator.result.selfCheck.processPathResolved, 434);
       expect(orchestrator.result.selfCheck.servicesTotal, 360);
       expect(orchestrator.result.selfCheck.servicesWithPath, 358);
-      // 界面据此显示未覆盖提示，这条是它的触发条件。
-      expect(orchestrator.result.selfCheck.sessionZeroUncovered, isTrue);
+      // 非提权直接判不完整：Session 0 是权限拦住的，不需要等计数来证明。
+      expect(
+        orchestrator.result.selfCheck.coverageIncomplete(orchestrator.uncoveredCount),
+        isTrue,
+      );
+      expect(orchestrator.result.selfCheck.coverageComplete, isFalse);
+      // 有进程拿到了 PID 却拿不到路径 —— 这就是「本来该看、没看到」的证据。
+      expect(orchestrator.result.selfCheck.hasUnresolvedProcesses, isTrue);
+    });
+
+    test('提权且各面计数健康时才敢说覆盖完整', () async {
+      // 这一条防的是「提权了但枚举整个失败返回 0 个」冒充完整的情况。
+      final SelfCheck broken = SelfCheck(
+        elevated: true,
+        processTotal: 0,
+        processPathResolved: 0,
+        session0Visible: 0,
+        servicesTotal: 0,
+        servicesWithPath: 0,
+      );
+      expect(broken.coverageComplete, isFalse,
+          reason: '枚举返回 0 个不能算覆盖完整，那是「什么都没枚举到」');
+      // 而且这种情形下 hasUnresolvedProcesses 是 false（0 不小于 0），
+      // 所以完整性判断必须另加计数 > 0 的条件，光看「有没有未解析项」会漏。
+      expect(broken.hasUnresolvedProcesses, isFalse);
+
+      final SelfCheck healthy = SelfCheck(
+        elevated: true,
+        processTotal: 690,
+        processPathResolved: 690,
+        session0Visible: 220,
+        servicesTotal: 360,
+        servicesWithPath: 360,
+      );
+      expect(healthy.coverageComplete, isTrue);
+      expect(healthy.coverageIncomplete(0), isFalse);
+    });
+
+    test('发现级未覆盖也会让结论判为不完整', () {
+      // 自检计数健康但有一条具体项没读出来：只有发现级的数字能看出来。
+      final SelfCheck healthy = SelfCheck(
+        elevated: true,
+        processTotal: 10,
+        processPathResolved: 10,
+        session0Visible: 5,
+        servicesTotal: 10,
+        servicesWithPath: 10,
+      );
+      expect(healthy.coverageIncomplete(0), isFalse);
+      expect(healthy.coverageIncomplete(1), isTrue);
     });
 
     test('三个扫描面的发现都被收集，中文与空格的 locator 原样返回', () async {

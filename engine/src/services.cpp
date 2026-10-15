@@ -162,16 +162,16 @@ int32_t ScanServices(const ServiceScanOptions& options, ServiceScanSummary* summ
       continue;
     }
 
-    const std::string stripped = strip_quotes_and_args(image_path);
-
-    std::string criteria;
-    if (options.interpreter_keywords != nullptr &&
-        matches_interpreter(stripped, *options.interpreter_keywords)) {
-      criteria = "service_interpreter";
-    } else if (options.path_allow_prefixes != nullptr &&
-               !path_in_prefixes(stripped, *options.path_allow_prefixes)) {
-      criteria = "service_path_heuristic";
-    } else {
+    // 判据组合在 criteria.cpp 里，由单元测试盯着 —— 这两条判据分开调用时
+    // 各自都对，错只存在于组合里（曾把剥过参数的串喂给 matches_interpreter，
+    // 于是 `/c` 被删、解释器判据永远不命中）。这里只负责传**原始** ImagePath。
+    std::vector<std::string> no_prefixes;
+    const std::string criteria = classify_service_path(
+        image_path,
+        options.interpreter_keywords != nullptr ? *options.interpreter_keywords
+                                                : no_prefixes,
+        options.path_allow_prefixes != nullptr ? *options.path_allow_prefixes : no_prefixes);
+    if (criteria.empty()) {
       continue;  // 干净服务
     }
 

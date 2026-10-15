@@ -39,6 +39,22 @@ bool path_in_prefixes(const std::string& image_path,
 bool is_hard_allowlisted(const std::string& name,
                          const std::vector<std::string>& hard_allowlist);
 
+// 服务 ImagePath 的归类：返回 "service_interpreter" / "service_path_heuristic"，
+// 干净服务返回空串。
+//
+// **这个函数存在的唯一理由就是不让那两条判据被分别调用。**
+// 曾经把 strip_quotes_and_args 的结果喂给 matches_interpreter，而它会截断到
+// 第一个空格、把 `/c` 删掉 —— 于是 `cmd.exe /c a.bat` 匹配不到、落到路径前缀
+// 判定、前缀又在 System32 里，最后静默丢掉。两个单元函数各自都对，
+// 测试分开跑也都绿，错只存在于它们的组合里，而组合只存在于那个不能在本机
+// 运行的扫描文件里。所以组合必须搬到这里，由单元测试盯着。
+//
+// image_path 传**原始**值，不要预剥：matches_interpreter 需要看到 `/c`
+// （spec §4.3），path_in_prefixes 自己会剥。
+std::string classify_service_path(const std::string& image_path,
+                                  const std::vector<std::string>& interpreter_keywords,
+                                  const std::vector<std::string>& path_allow_prefixes);
+
 }  // namespace yh
 
 #endif  // YH_CRITERIA_H_
