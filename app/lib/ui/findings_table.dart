@@ -19,7 +19,15 @@ class FindingsTable extends StatelessWidget {
   /// 已按扫描面筛过的发现（selected 为 null 时是全部）。
   final List<Finding> findings;
 
-  const FindingsTable({super.key, required this.findings});
+  /// 本次扫描是否已提权。行内措辞与颜色都取决于它：已提权时还会
+  /// ACCESS_DENIED 的只能是系统保护（PPL），再说「需要提权」就是错的。
+  final bool elevated;
+
+  const FindingsTable({
+    super.key,
+    required this.findings,
+    this.elevated = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +70,7 @@ class FindingsTable extends StatelessWidget {
       }
       sections.add(_GroupHeader(label: entry.label, count: group.length));
       for (final Finding finding in group) {
-        sections.add(_FindingTile(finding: finding));
+        sections.add(_FindingTile(finding: finding, elevated: elevated));
       }
     }
 
@@ -91,18 +99,23 @@ class _GroupHeader extends StatelessWidget {
 
 class _FindingTile extends StatelessWidget {
   final Finding finding;
-  const _FindingTile({required this.finding});
+  final bool elevated;
+  const _FindingTile({required this.finding, required this.elevated});
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+
+    // 可行动缺口 = 未提权且被拒。已提权时读不到的一律是系统保护/竞态，
+    // 不是缺陷 —— 那些条目若继续用错误色，「提权后仍一片红」就会重演。
+    final bool actionableGap = !finding.covered && !elevated;
 
     final List<String> badges = <String>[
       kCriteriaLabels[finding.criteria] ?? finding.criteria,
       if (!finding.covered) kUncoveredBadge,
       if (finding.hidden) kHiddenBadge,
       if (finding.system) kSystemBadge,
-      if (finding.elevationRequired) kNeedsElevationBadge,
+      if (finding.elevationRequired) elevated ? kProtectedBadge : kNeedsElevationBadge,
       if (finding.allowlisted) kAllowlistedBadge,
     ];
 
@@ -136,9 +149,10 @@ class _FindingTile extends StatelessWidget {
                 for (final String badge in badges)
                   _Badge(
                     text: badge,
-                    // 未覆盖用错误色：它是「没看」而不是「看了没问题」。
+                    // 未覆盖用错误色：它是「没看」而不是「看了没问题」；
+                    // 已提权时读不到的不再可行动，改用中性色。
                     emphasis: !finding.covered || finding.allowlisted,
-                    bad: !finding.covered,
+                    bad: actionableGap,
                   ),
               ],
             ),
@@ -146,11 +160,12 @@ class _FindingTile extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  finding.elevationRequired
-                      ? '权限不足，未检查。以管理员身份重跑才能覆盖。'
-                      : '无法判断（环境变量无法展开或数据不可读）。',
+                  // 与日志同一套说法（log_writer 的原因行）。
+                  _uncoveredReason(finding, elevated: elevated),
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
+                    color: actionableGap
+                        ? theme.colorScheme.error
+                        : theme.colorScheme.outline,
                   ),
                 ),
               ),
@@ -159,6 +174,17 @@ class _FindingTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 未覆盖条目的行内原因。与日志同一套说法：已提权时让用户「以管理员身份
+/// 重跑」就是错的 —— 那正是他刚刚做完的事。
+String _uncoveredReason(Finding finding, {required bool elevated}) {
+  if (elevated) {
+    return finding.elevationRequired ? kUncoveredProtected : kUncoveredNoEvidence;
+  }
+  return finding.elevationRequired
+      ? kUncoveredNeedsElevation
+      : kUncoveredDataUnreadable;
 }
 
 class _Badge extends StatelessWidget {

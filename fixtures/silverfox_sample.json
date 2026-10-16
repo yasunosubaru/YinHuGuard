@@ -1,12 +1,16 @@
 {
-  "_note": "每个扫描面各造一个命中，外加一条中文+空格路径。用于验证上层能把发现一路带到报告里。注意 swprv 类条目由引擎侧硬白名单拦掉，不会出现在这里——fixture 代表的是引擎的输出，不是原始系统状态。",
+  "_note": "每个扫描面各造一个命中，外加一条中文+空格路径。用于验证上层能把发现一路带到报告里。注意 swprv 类条目由引擎侧硬白名单拦掉，不会出现在这里——fixture 代表的是引擎的输出，不是原始系统状态。自检计数按 clean_machine 的同一基线给全（非提权 → 258 个权限缺口）：少这四个数，日志会显示「690 总数 / 434 已解析」却不报覆盖不完整，fixture 自己就成了自相矛盾的例子。",
   "self_check": {
     "elevated": false,
     "process_total": 690,
     "process_path_resolved": 434,
     "session0_visible": 0,
     "services_total": 360,
-    "services_with_path": 358
+    "services_with_path": 358,
+    "process_unresolved_permission": 256,
+    "process_unresolved_other": 0,
+    "services_unresolved_permission": 2,
+    "services_unresolved_other": 0
   },
   "observations": [
     {

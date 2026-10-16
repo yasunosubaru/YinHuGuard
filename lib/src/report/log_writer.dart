@@ -13,7 +13,6 @@
 
 import 'dart:io';
 
-import '../criteria/evaluator.dart';
 import '../criteria/redact.dart';
 import '../model/finding.dart';
 import '../scan/orchestrator.dart';
@@ -52,8 +51,15 @@ Future<File> writeScanLog(
   out.writeln('Session 0 可见进程: ${result.selfCheck.session0Visible}');
   out.writeln('服务总数: ${result.selfCheck.servicesTotal}');
   out.writeln('取到 ImagePath 的服务: ${result.selfCheck.servicesWithPath}');
-  if (result.selfCheck.hasPermissionGap ||
-      uncoveredCountOf(result.findings) > 0) {
+  // 「不完整」只看**权限缺口**，与界面同源（selfcheck_panel 也是按
+  // hasPermissionGap 判红）。这里原先是 `hasPermissionGap || 有未覆盖条目`，
+  // 但残留进程恰恰会产出 covered=false 的发现 —— 于是同一份扫描，界面说
+  // 「正常残留、不影响结论」，日志说「不能据此判断机器干净」。两边必须一致，
+  // 否则读者不知道该信哪一个。
+  //
+  // 权限之外的未覆盖（注册表值的环境变量展不开、属性读不出）并没有因此丢掉：
+  // 它们仍然逐条以 UNCOVERED 列出，并在下面写明各自的原因。
+  if (result.selfCheck.hasPermissionGap) {
     out.writeln();
     out.writeln('!! 本次扫描的覆盖范围不完整。');
     if (!result.selfCheck.elevated) {
@@ -97,7 +103,9 @@ Future<File> writeScanLog(
       if (f.covered) 'covered' else 'UNCOVERED',
       if (f.hidden) 'H',
       if (f.system) 'S',
-      if (f.elevationRequired) 'needs-elevation',
+      // 已提权还 ACCESS_DENIED 的不是「需要提权」，是系统保护 —— 如实标注，
+      // 否则用户在提权后的日志里读到自己已经做完的事，只会怀疑整个工具。
+      if (f.elevationRequired) elevated ? 'protected' : 'needs-elevation',
       if (f.allowlisted) 'allowlisted',
     ];
     out.writeln('[${flags.join(' ')}] $locator');
@@ -105,9 +113,15 @@ Future<File> writeScanLog(
       out.writeln('    -> $display');
     }
     if (!f.covered) {
-      out.writeln(f.elevationRequired
-          ? '    原因: 权限不足，未能检查。需要以管理员身份重跑才能覆盖。'
-          : '    原因: 环境变量无法展开或数据不可读，未能判断文件是否存在。');
+      // 与界面同一套说法（findings_table 的 _uncoveredReason）：已提权时
+      // 让用户「以管理员身份重跑」就是错的。
+      if (f.elevationRequired && elevated) {
+        out.writeln('    原因: 受系统保护，管理员权限也读不到（属正常残留）。');
+      } else if (f.elevationRequired) {
+        out.writeln('    原因: 权限不足，未能检查。需要以管理员身份重跑才能覆盖。');
+      } else {
+        out.writeln('    原因: 环境变量无法展开或数据不可读，未能判断文件是否存在。');
+      }
     }
   }
 

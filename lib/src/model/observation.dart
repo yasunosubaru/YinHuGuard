@@ -7,7 +7,8 @@
 // C++ 里写的是字面量，Dart 这边不认任何别的值。这里**抛异常**而不是用 assert，
 // 因为 release 构建会把 assert 编译掉，那正好是本项目最忌讳的「静默接受坏数据」。
 
-// 三个扫描面，与 spec §4.1–4.3 及上游 bat 的三段一一对应。
+// 七个扫描面：前三个与 spec §4.1–4.3 及上游 bat 的三段一一对应，
+// 后四个是二期深扫（spec §4.6 记的四个落点）。
 const List<String> kSurfaces = <String>[
   'processes',
   'run_keys',

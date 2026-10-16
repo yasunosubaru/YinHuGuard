@@ -80,7 +80,44 @@ if (Test-Path -LiteralPath $bundleDir) {
 New-Item -ItemType Directory -Force -Path $bundleDir | Out-Null
 
 Invoke-Step 'copy Flutter Release output' {
-  Copy-Item -Path (Join-Path $appRelease '*') -Destination $bundleDir -Recurse -Force
+  # **Explicit allowlist, NOT a wildcard copy.**
+  #
+  # This used to be `Copy-Item -Recurse -Force $appRelease\*`, which swept
+  # runtime output into the shipped bundle: the app writes its scan log and
+  # JSON report next to the exe, and the tool had been run directly out of
+  # this Release directory, so `reports\` (12+ logs carrying the developer
+  # machine's real paths) and a stray `$v\` directory ended up in the zip
+  # pasted onto a clean install.
+  #
+  # A security tool that hands the user its own scan history is the exact
+  # opposite of what the README promises about not leaving data lying around.
+  # Anything not listed here does not ship -- that is the point.
+  # rules.json and the engine DLL are copied explicitly just below from their
+  # canonical locations, so they are deliberately not in this list.
+  $copyList = @(
+    'yinhuguard_app.exe',
+    'flutter_windows.dll',
+    'native_assets.json',
+    'data'
+  )
+  foreach ($item in $copyList) {
+    $src = Join-Path $appRelease $item
+    if (-not (Test-Path -LiteralPath $src)) {
+      throw "expected build output missing: $src"
+    }
+    Copy-Item -LiteralPath $src -Destination $bundleDir -Recurse -Force
+  }
+
+  # The app writes its log and report into `reports\` next to the exe. That
+  # directory must never exist in a freshly built bundle; if it does, the
+  # build output was polluted by someone running the exe in place.
+  foreach ($junk in @('reports', '$v')) {
+    $junkPath = Join-Path $bundleDir $junk
+    if (Test-Path -LiteralPath $junkPath) {
+      throw ("build output is polluted by runtime artifacts: " + $junkPath +
+             " -- run the exe from a clean copy, not from this directory")
+    }
+  }
 }
 
 Invoke-Step 'copy rules.json' {
@@ -128,6 +165,11 @@ $mustExist = @(
   'flutter_windows.dll',
   'README-zh.txt'
 )
+$mustNotExist = @(
+  # Scan logs and reports from the developer's machine. These once shipped.
+  'reports\'
+  '$v\'
+)
 $missing = @()
 foreach ($item in $mustExist) {
   if (-not (Test-Path -LiteralPath (Join-Path $checkDir $item))) {
@@ -137,9 +179,27 @@ foreach ($item in $mustExist) {
 if (-not (Test-Path -LiteralPath (Join-Path $checkDir 'data'))) {
   $missing += 'data\'
 }
+# The AOT blob is the whole Dart side; a bundle without it starts and reports
+# "engine not found", which reads as a broken package rather than a bad build.
+foreach ($blob in @('data\app.so', 'data\flutter_assets')) {
+  if (-not (Test-Path -LiteralPath (Join-Path $checkDir $blob))) {
+    $missing += $blob
+  }
+}
 
 if ($missing.Count -gt 0) {
   throw ("archive is missing: " + ($missing -join ', '))
+}
+
+$leaked = @()
+foreach ($item in $mustNotExist) {
+  if (Test-Path -LiteralPath (Join-Path $checkDir $item)) {
+    $leaked += $item
+  }
+}
+if ($leaked.Count -gt 0) {
+  throw ("archive leaks runtime artifacts: " + ($leaked -join ', ') +
+         " -- these contain real paths from this machine and must not ship")
 }
 
 Remove-Item -LiteralPath $checkDir -Recurse -Force

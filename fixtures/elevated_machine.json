@@ -1,5 +1,5 @@
 {
-  "_note": "模拟提权后的完整扫描。Session 0 的 220 个进程这时全部读得到，所以 permission_gaps 归零、界面报「覆盖完整」。residual 留了 2 个 —— 扫描瞬间退出的进程，属于竞态而非缺陷，界面刻意只用灰字提示、不报红。这个 fixture 的用途就是把「覆盖完整」这个状态变成可达的，否则警告永远关不掉。",
+  "_note": "模拟提权后的扫描。Session 0 的 220 个进程这时全部读得到，所以 permission_gaps 归零、红色警告消失。这里刻意留了 2 个 residual（扫描瞬间退出的进程，属竞态而非缺陷），因此 coverageComplete 为 false —— 界面显示「已提权：能检查的都已检查」+「另有 2 个…属正常现象」，**不显示蓝色「覆盖完整」**（蓝色要求零缺口，残留也算缺口）。要看蓝色那一档，把下面两个 unresolved 计数都改成 0。",
   "self_check": {
     "elevated": true,
     "process_total": 690,

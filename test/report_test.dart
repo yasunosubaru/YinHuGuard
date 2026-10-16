@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:test/test.dart';
+import 'package:yinhuguard_core/src/criteria/evaluator.dart';
+import 'package:yinhuguard_core/src/model/observation.dart';
+import 'package:yinhuguard_core/src/model/self_check.dart';
 import 'package:yinhuguard_core/src/report/csv_report.dart';
 import 'package:yinhuguard_core/src/report/json_report.dart';
 import 'package:yinhuguard_core/src/report/log_writer.dart';
@@ -157,6 +160,107 @@ void main() {
       // 未提权 + Session 0 全黑时必须写明不能据此判断干净。
       expect(text, contains('覆盖范围不完整'));
       expect(text, contains('不能据此判断机器干净'));
+    });
+
+    test('只有残留未覆盖时日志不写「覆盖范围不完整」', () async {
+      // 这是「界面说正常残留、日志说不完整」的回归。
+      // 已提权，唯一一条未覆盖是扫描期间退出/受保护的进程 —— 界面按
+      // hasPermissionGap 判，只给灰色提示；日志原先按
+      // `hasPermissionGap || 有未覆盖条目` 判，于是同一份扫描两边结论相反。
+      final Observation residual = Observation(
+        surface: 'processes',
+        locator: r'C:\Program Files\Windows Defender\MsMpEng.exe',
+        displayName: 'MsMpEng.exe',
+        criteria: 'file_attr_hs',
+        attributesVerified: false,
+        hidden: false,
+        system: false,
+        elevationRequired: false,
+        covered: false,
+        timestamp: DateTime.utc(2026, 10, 15),
+      );
+      final ScanResult result = ScanResult(
+        selfCheck: SelfCheck(
+          elevated: true,
+          processTotal: 690,
+          processPathResolved: 689,
+          session0Visible: 220,
+          servicesTotal: 360,
+          servicesWithPath: 360,
+          processUnresolvedOther: 1,
+        ),
+        findings: evaluate(<Observation>[residual], userAllowlist: const <String>[]),
+        startedAt: DateTime.utc(2026, 10, 15, 12),
+        finishedAt: DateTime.utc(2026, 10, 15, 12, 0, 3),
+      );
+
+      expect(result.selfCheck.hasPermissionGap, isFalse,
+          reason: '已提权时未解析属残留，界面不该报红');
+      expect(result.selfCheck.hasResidual, isTrue);
+
+      final Directory tmp = Directory.systemTemp.createTempSync('yh_log_residual');
+      addTearDown(() => tmp.deleteSync(recursive: true));
+      final File file = await writeScanLog(
+          result, tmp, username: kUser, machineName: kMachine);
+      final String text = file.readAsStringSync();
+
+      // 残留条目仍然逐条列出、写原因 —— 信息没丢，只是不再升级成「不完整」。
+      expect(text, contains('UNCOVERED'));
+      expect(text, contains('MsMpEng.exe'));
+      expect(text, contains('属正常现象'));
+      expect(text, isNot(contains('覆盖范围不完整')));
+      expect(text, isNot(contains('不能据此判断机器干净')));
+    });
+
+    test('已提权时未覆盖原因写「受系统保护」，不再要求提权重跑', () async {
+      // 用户实测的第一条反馈：UAC 点了「是」之后，界面与日志仍写着
+      // 「以管理员身份重跑才能覆盖」。已提权还 ACCESS_DENIED 的只能是
+      // PPL 这类系统保护进程 —— 措辞与 flag 都必须跟着提权状态走。
+      final Observation protectedProc = Observation(
+        surface: 'processes',
+        locator: 'csrss.exe',
+        displayName: 'csrss.exe',
+        criteria: 'file_attr_hs',
+        attributesVerified: false,
+        hidden: false,
+        system: false,
+        elevationRequired: true,
+        covered: false,
+        timestamp: DateTime.utc(2026, 10, 16),
+      );
+      final ScanResult result = ScanResult(
+        selfCheck: SelfCheck(
+          elevated: true,
+          processTotal: 642,
+          processPathResolved: 614,
+          session0Visible: 188,
+          servicesTotal: 361,
+          servicesWithPath: 361,
+          // 已提权时引擎仍会看到 ACCESS_DENIED（PPL 照样拒），但模型按
+          // 提权状态把它整块归入残留 —— 所以这里不该报「不完整」。
+          processUnresolvedPermission: 28,
+        ),
+        findings: evaluate(<Observation>[protectedProc], userAllowlist: const <String>[]),
+        startedAt: DateTime.utc(2026, 10, 16, 12),
+        finishedAt: DateTime.utc(2026, 10, 16, 12, 0, 3),
+      );
+
+      expect(result.selfCheck.hasPermissionGap, isFalse,
+          reason: '已提权时 ACCESS_DENIED 属系统保护，不该再报权限缺口');
+      expect(result.selfCheck.hasResidual, isTrue);
+
+      final Directory tmp = Directory.systemTemp.createTempSync('yh_log_protected');
+      addTearDown(() => tmp.deleteSync(recursive: true));
+      final File file = await writeScanLog(
+          result, tmp, username: kUser, machineName: kMachine);
+      final String text = file.readAsStringSync();
+
+      expect(text, contains('protected'), reason: 'flag 必须换成 protected');
+      expect(text, isNot(contains('needs-elevation')));
+      expect(text, contains('受系统保护，管理员权限也读不到'));
+      expect(text, isNot(contains('以管理员身份重跑才能覆盖')));
+      // 与界面同源：提权状态下的 ACCESS_DENIED 归残留，不升级成「不完整」。
+      expect(text, isNot(contains('覆盖范围不完整')));
     });
 
     test('日志与报告同样脱敏 —— 它一样会离开这台机器', () async {

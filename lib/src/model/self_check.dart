@@ -84,6 +84,21 @@ class SelfCheck {
       permissionGaps == 0 &&
       residualGaps == 0;
 
+  /// 提权能达到的常态结论：已提权、两个面都枚举到了东西、权限层面零缺口。
+  ///
+  /// 与 [coverageComplete] 只差残留。真机上系统保护进程（csrss.exe 这类 PPL）
+  /// 管理员也读不到，所以 [coverageComplete] 几乎不可达；而界面不能因此
+  /// 什么都不说。这个判定就是那档常驻的肯定结论 —— 权限层面没有缺口，
+  /// 剩下的读不到是任何扫描都避免不了的竞态/保护，不影响结论。
+  bool get coverageReached =>
+      elevated && processTotal > 0 && servicesTotal > 0 && permissionGaps == 0;
+
+  /// 两个主面一个都没枚举到。只有引擎没正常工作才会这样。
+  ///
+  /// 这种情况下 findings 会是空的、界面上看起来像「机器干净」，
+  /// 所以必须能被界面识别并显式报异常，绝不能悄悄放过去。
+  bool get enumerationDead => processTotal == 0 || servicesTotal == 0;
+
   factory SelfCheck.fromJson(Map<String, dynamic> json) {
     int intOr(String key) => (json[key] as num?)?.toInt() ?? 0;
     return SelfCheck(

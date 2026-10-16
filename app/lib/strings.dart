@@ -19,6 +19,15 @@ const String kStartScan = '开始扫描';
 const String kRescan = '重新扫描';
 const String kScanning = '正在扫描…';
 
+/// 进度条旁的说明。顺序必须与 `kScanOrder` 一致，否则进度条走到第三个面
+/// 用户还在等「服务」之后的进度。
+const String kScanProgressHint =
+    '七个面依次执行，耗时递增：进程 → 启动项 → 服务 → 注册表载荷 → '
+    '驱动服务 → 文件落点 → 计划任务';
+
+/// 侧边栏的「不过滤」入口。
+const String kSurfaceAll = '全部';
+
 const String kSurfaceProcesses = '隐藏进程';
 const String kSurfaceRunKeys = '隐藏启动项';
 const String kSurfaceServices = '可疑服务';
@@ -64,11 +73,13 @@ const String kSession0WarningBody =
     '「没有发现问题」在这里只意味着「这一部分没看」，不等于机器干净。\n'
     '如需完整结论，请以管理员身份重新扫描。';
 
-/// 已提权、但仍有条目没检查出来时的说法。
-const String kUnresolvedRowsBody =
-    '有进程或服务本次没能检查到（取不到路径、属性或配置）。\n'
-    '下面列表里带「未覆盖」标记的就是这些条目。\n'
-    '「没有发现问题」不包括它们，不能据此判断机器干净。';
+/// 引擎层失败：两个主面一个都没枚举到。这次结果整个不可用。
+/// （界面必须显式报这一档 —— 否则空发现列表会被读成「机器干净」。）
+const String kSelfCheckFailedTitle = '自检异常：什么都没枚举到';
+
+const String kSelfCheckFailedBody =
+    '这次扫描没有枚举到任何进程或服务，说明引擎没有正常工作。\n'
+    '本次结果不可用，请重新扫描；若反复出现，请重新解压一份完整的包再试。';
 
 /// 兼容旧名，界面标题统一走 kCoverageIncompleteTitle。
 const String kSession0WarningTitle = kCoverageIncompleteTitle;
@@ -81,7 +92,8 @@ const String kElevateCancelled = '提权被取消，仍以普通权限运行。�
 const String kElevateFailed = '提权失败：';
 const String kElevatedAlready = '已以管理员身份运行。';
 
-/// 权限层面零缺口 —— 这是本工具唯一能达到的「完整」。
+/// 覆盖完整 —— 判定最严的一档：连残留都没有。真机上罕见（保护进程永远读不到），
+/// 但只要差一点就用下面那档「能检查的都已检查」，绝不放宽这一句的字面含义。
 const String kCoverageCompleteTitle = '覆盖完整';
 
 /// 说清楚「完整」的边界，否则用户会把这句话读成「保证没病毒」。
@@ -89,18 +101,28 @@ const String kCoverageCompleteBody =
     '本次所有进程与服务都已检查，没有因权限而遗漏的部分。\n'
     '这不代表机器一定干净——判定用的是启发式规则，仍需人确认。';
 
-/// 扫描期残留：不是缺陷，刻意不报红。
-const String kResidualNoticeTitle = '扫描期间的正常残留';
+/// 已提权、权限零缺口、但仍有读不到的条目 —— 真机上这就是常态结论。
+///
+/// 措辞里**不能出现「完整」**：列表里还有带「未覆盖」标记的条目，
+/// 「蓝色覆盖完整 + 红色未覆盖同屏」正是用户实测报过的自相矛盾。
+const String kCoverageReachedTitle = '已提权：能检查的都已检查';
 
-const String kResidualNoticeBody =
-    '有 %d 个进程/服务在扫描过程中已经退出，或属于系统保护进程。\n'
-    '这不是权限问题，提权也读不到，属于竞态而非缺陷，不影响本次结论。';
+/// 读不到的条目会逐条以「未覆盖」标在列表里。用发现级的 uncoveredCount
+/// 来分流，不能只看 SelfCheck 的聚合数字 —— 驱动、注册表这些面没有自检计数。
+const String kCoverageReachedBodyWithList =
+    '管理员权限下，权限层面没有缺口。仍有少数条目读不到证据（系统保护进程、'
+    '扫描瞬间退出或数据不可读）—— 已在下方逐条标为「未覆盖」，属正常现象，不影响结论。';
+
+/// 读不到的条目没有进入发现列表时的说法（例如进程在枚举瞬间退出、没留下条目）。
+const String kCoverageReachedBodyResidualOnly =
+    '管理员权限下，权限层面没有缺口。另有 %d 个进程/服务在扫描瞬间已退出或受系统保护，'
+    '读不到路径 —— 属正常现象，不影响结论。';
 
 // ---- 结果列表 ----
 
 const String kFindingsTitle = '发现';
 const String kEmptyForSurface = '这个扫描面没有命中。';
-const String kNoScanYet = '尚未扫描。点击「开始扫描」运行三段检测。';
+const String kNoScanYet = '尚未扫描。点击「开始扫描」运行全部七个扫描面。';
 
 /// 空结果旁的提示。任何「没有命中」的表述都必须带上这句，
 /// 否则读者会把它当成「没有问题」。
@@ -112,6 +134,22 @@ const String kAllowlistedBadge = '已按白名单折叠';
 const String kHiddenBadge = '隐藏属性';
 const String kSystemBadge = '系统属性';
 const String kNeedsElevationBadge = '需要提权';
+
+/// 已提权时的正确叫法：管理员下还会 ACCESS_DENIED 的只能是系统保护（PPL 等），
+/// 再说「需要提权」就是错的。
+const String kProtectedBadge = '系统保护';
+
+/// 未覆盖条目的行内原因，按提权状态分支。已提权时不可能再是权限问题：
+/// 让用户「以管理员身份重跑」而他已经这样做了，只会毁掉整份报告的信任。
+const String kUncoveredNeedsElevation = '权限不足，未检查。以管理员身份重跑才能覆盖。';
+const String kUncoveredDataUnreadable = '无法判断（环境变量无法展开或数据不可读）。';
+
+/// 已提权才可能出现：PPL 保护进程（csrss.exe 这类），任何权限都读不到。
+const String kUncoveredProtected =
+    '受系统保护，管理员权限也读不到（属正常残留）。若该对象不是已知的 Windows 系统进程，请人工核实。';
+
+/// 已提权、非权限类：对象没有映像文件（伪进程）或数据确实读不出。
+const String kUncoveredNoEvidence = '无法读取该条目的证据（对象没有映像文件或数据不可读）。';
 
 const String kColumnLocator = '位置';
 const String kColumnDisplayName = '具体对象';

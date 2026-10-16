@@ -235,6 +235,8 @@ class _DashboardPageState extends State<DashboardPage> {
                 selected: _selectedSurface,
                 hitCounts: hitCounts,
                 uncoveredCounts: uncoveredCounts,
+                // 已提权时「未覆盖」不再是可行动缺口，行内颜色随之转中性。
+                elevated: orchestrator?.result.selfCheck.elevated ?? false,
                 onSelect: (String? value) =>
                     setState(() => _selectedSurface = value),
               ),
@@ -291,7 +293,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 Text(_progressLabel),
                 const Spacer(),
                 // 无倒计时的进度条是最常见的弃用原因，所以这里显式带上进度语义。
-                Text('三段依次执行：进程 → 启动项 → 服务'),
+                Text(kScanProgressHint),
               ],
             ),
           ),
@@ -328,6 +330,10 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       );
     }
-    return FindingsTable(findings: visible.cast<Finding>());
+    return FindingsTable(
+      findings: visible.cast<Finding>(),
+      // 行内措辞要看提权状态：已提权时 ACCESS_DENIED 只能是系统保护。
+      elevated: orchestrator.result.selfCheck.elevated,
+    );
   }
 }

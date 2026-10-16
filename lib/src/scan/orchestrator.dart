@@ -1,9 +1,10 @@
 // lib/src/scan/orchestrator.dart
 //
-// 扫描编排：按固定顺序跑三个面，把观测过一遍判据，攒成一份 ScanResult。
+// 扫描编排：按固定顺序跑全部扫描面，把观测过一遍判据，攒成一份 ScanResult。
 //
-// 顺序固定为 processes -> run_keys -> services，与上游 bat 的
-// 「扫描1/3、2/3、3/3」一致，也让界面上的进度语义和用户的心理模型对上。
+// 前三个面固定为 processes -> run_keys -> services，与上游 bat 的
+// 「扫描1/3、2/3、3/3」一致，也让界面上的进度语义和用户的心理模型对上；
+// 其余四个是二期深扫面，按耗时递增排在后面。
 //
 // 任一扫描面抛异常时整体重抛、不返回半份结果：半份结果的危险在于它看起来
 // 像一份完整报告，读者无从知道少了哪一面。
@@ -14,7 +15,7 @@ import '../model/observation.dart';
 import '../model/self_check.dart';
 import '../source/observation_source.dart';
 
-/// 三个扫描面的固定顺序。
+/// 扫描面的固定顺序。
 const List<String> kScanOrder = <String>[
   'processes',
   'run_keys',
@@ -62,7 +63,7 @@ class Orchestrator {
     return snapshot;
   }
 
-  /// 跑一遍三个扫描面。[onProgress] 在**每个面开始前**回调一次，
+  /// 跑一遍全部扫描面。[onProgress] 在**每个面开始前**回调一次，
   /// 参数为 (面名, 第几个, 共几个)，从 1 开始计数。
   Future<void> scan(
     void Function(String surface, int index, int total) onProgress,
