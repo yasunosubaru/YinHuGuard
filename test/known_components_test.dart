@@ -5,7 +5,7 @@
 //   2) 名单宁缺勿滥 —— 对不上的名字必须留在「待人工核实」。
 //
 // 最后一组用的是 2026-10-16 07:59:55 本机真机提权扫描的**实际未覆盖名单**
-// （日志：dist/yinhuguard/reports/yinhuguard-2026-10-16T07-59-55.log，
+// （日志：dist/yinhuguard/reports/yinhuguard-2026-10-16T<timestamp>.log，
 // 26 个进程 + 12 个驱动）。名单数据改坏了这一组会立刻红。
 
 import 'dart:convert';
