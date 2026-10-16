@@ -16,6 +16,7 @@ import 'dart:io';
 import '../criteria/redact.dart';
 import '../model/finding.dart';
 import '../scan/orchestrator.dart';
+import '../triage/known_components.dart';
 
 /// 日志名用 ISO 时间戳，冒号换成连字符（Windows 文件名不允许冒号）。
 String logFileNameFor(DateTime when) {
@@ -91,6 +92,39 @@ Future<File> writeScanLog(
   out.writeln('折叠进白名单: ${result.findings.where((Finding f) => f.allowlisted).length}');
   out.writeln();
 
+  // ---- 3a) 未覆盖汇总 ----
+  // 用户实测的原话是「还是有未覆盖的 26 项和 12 项啊」。数字本身不是问题 ——
+  // 一次真机提权扫描必然有几十条读不到；问题是一份 38 条的名单里看不出
+  // 哪几条需要人看一眼。这一段就是把它们挑出来，其余各归其类。
+  //
+  // **只在已提权时给出**：未提权时「读不到」的原因就是没提权，一百多条无辜的
+  // 第三方服务进程都会被算成「未能识别」，那是噪声而不是线索。
+  final List<Finding> uncovered = <Finding>[
+    for (final Finding f in result.findings)
+      if (!f.covered) f,
+  ];
+  if (elevated && uncovered.isNotEmpty) {
+    final int windowsCount =
+        uncovered.where((Finding f) => f.known?.isWindows ?? false).length;
+    final int vendorCount =
+        uncovered.where((Finding f) => f.known?.isWindows == false).length;
+    final List<String> unidentified = <String>[
+      for (final Finding f in uncovered)
+        if (f.known == null) f.locator,
+    ];
+    out.writeln('== 未覆盖汇总 ==');
+    out.writeln(
+      '未覆盖 ${uncovered.length} 条：已对照已知组件 ${windowsCount + vendorCount} 条'
+      '（Windows $windowsCount / 已识别第三方 $vendorCount），'
+      '未能识别 ${unidentified.length} 条。',
+    );
+    if (unidentified.isNotEmpty) {
+      out.writeln('未能识别（建议人工核实）：${unidentified.join('、')}');
+    }
+    out.writeln('（对照只按名字，路径读不到无法进一步验证；命中不代表安全。）');
+    out.writeln();
+  }
+
   // ---- 3) 每条发现 + 未覆盖原因 ----
   out.writeln('== 发现 ==');
   for (final Finding f in result.findings) {
@@ -107,6 +141,12 @@ Future<File> writeScanLog(
       // 否则用户在提权后的日志里读到自己已经做完的事，只会怀疑整个工具。
       if (f.elevationRequired) elevated ? 'protected' : 'needs-elevation',
       if (f.allowlisted) 'allowlisted',
+      // 名字对照的结果与「能不能读」分开标：known-* 只是名字眼熟，
+      // unidentified 才是需要人看一眼的那几条。只在已提权时标 ——
+      // 未提权时读不到的原因是权限，不是身份。
+      if (elevated && !f.covered && f.known == null) 'unidentified',
+      if (elevated && !f.covered && f.known != null)
+        f.known!.isWindows ? 'known-windows' : 'known-vendor',
     ];
     out.writeln('[${flags.join(' ')}] $locator');
     if (display.isNotEmpty && display != locator) {
@@ -121,6 +161,14 @@ Future<File> writeScanLog(
         out.writeln('    原因: 权限不足，未能检查。需要以管理员身份重跑才能覆盖。');
       } else {
         out.writeln('    原因: 环境变量无法展开或数据不可读，未能判断文件是否存在。');
+      }
+      final KnownComponent? known = f.known;
+      if (elevated) {
+        out.writeln(
+          known == null
+              ? '    对照: 不在已知组件清单里 —— 建议人工核实。'
+              : '    对照: ${known.label}（仅名字比对，无法进一步验证）。',
+        );
       }
     }
   }

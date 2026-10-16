@@ -10,6 +10,7 @@ import 'package:yinhuguard_core/src/report/json_report.dart';
 import 'package:yinhuguard_core/src/report/log_writer.dart';
 import 'package:yinhuguard_core/src/scan/orchestrator.dart';
 import 'package:yinhuguard_core/src/source/fixture_observation_source.dart';
+import 'package:yinhuguard_core/src/triage/known_components.dart';
 
 const String kUser = 'zhangwei';
 const String kMachine = 'TEST-PC';
@@ -261,6 +262,97 @@ void main() {
       expect(text, isNot(contains('以管理员身份重跑才能覆盖')));
       // 与界面同源：提权状态下的 ACCESS_DENIED 归残留，不升级成「不完整」。
       expect(text, isNot(contains('覆盖范围不完整')));
+    });
+
+    test('未覆盖条目自动对照清单：日志与 JSON 都给出分诊结果', () async {
+      // 用户实测：38 条未覆盖里只有 1 条名字对不上。这条测试钉住三件事 ——
+      // 分类计数、需要人看的那条被点名、「仅名字比对」的免责说明没被省略。
+      final KnownComponents known = KnownComponents.fromRules(
+        jsonDecode(File('rules/rules.json').readAsStringSync())
+            as Map<String, dynamic>,
+      );
+      final List<Observation> observations = <Observation>[
+        Observation(
+          surface: 'processes',
+          locator: 'csrss.exe',
+          displayName: 'csrss.exe',
+          criteria: 'file_attr_hs',
+          attributesVerified: false,
+          hidden: false,
+          system: false,
+          elevationRequired: true,
+          covered: false,
+          timestamp: DateTime.utc(2026, 10, 16),
+        ),
+        Observation(
+          surface: 'processes',
+          locator: 'iGoSwServer.exe',
+          displayName: 'iGoSwServer.exe',
+          criteria: 'file_attr_hs',
+          attributesVerified: false,
+          hidden: false,
+          system: false,
+          elevationRequired: true,
+          covered: false,
+          timestamp: DateTime.utc(2026, 10, 16),
+        ),
+      ];
+      final ScanResult result = ScanResult(
+        selfCheck: SelfCheck(
+          elevated: true,
+          processTotal: 545,
+          processPathResolved: 519,
+          session0Visible: 177,
+          servicesTotal: 359,
+          servicesWithPath: 359,
+          processUnresolvedPermission: 26,
+        ),
+        findings: evaluate(
+          observations,
+          userAllowlist: const <String>[],
+          knownComponents: known,
+        ),
+        startedAt: DateTime.utc(2026, 10, 16, 12),
+        finishedAt: DateTime.utc(2026, 10, 16, 12, 0, 3),
+      );
+
+      final Directory tmp = Directory.systemTemp.createTempSync('yh_log_triage');
+      addTearDown(() => tmp.deleteSync(recursive: true));
+      final File file = await writeScanLog(
+        result,
+        tmp,
+        username: kUser,
+        machineName: kMachine,
+      );
+      final String log = file.readAsStringSync();
+
+      expect(log, contains('== 未覆盖汇总 =='));
+      expect(
+        log,
+        contains('未覆盖 2 条：已对照已知组件 1 条（Windows 1 / 已识别第三方 0），未能识别 1 条。'),
+      );
+      expect(log, contains('未能识别（建议人工核实）：iGoSwServer.exe'));
+      expect(log, contains('known-windows'));
+      expect(log, contains('unidentified'));
+      expect(log, contains('对照: Windows 系统组件（仅名字比对，无法进一步验证）。'));
+      expect(log, contains('对照: 不在已知组件清单里 —— 建议人工核实。'));
+
+      final Map<String, dynamic> report = jsonDecode(
+        toJsonReport(result, username: kUser, machineName: kMachine),
+      ) as Map<String, dynamic>;
+      expect(report['uncovered_count'], 2);
+      expect(report['uncovered_known_count'], 1);
+      expect(report['uncovered_unidentified_count'], 1);
+
+      final List<dynamic> findings = report['findings'] as List<dynamic>;
+      Map<String, dynamic> rowOf(String locator) => findings.firstWhere(
+            (dynamic f) => (f as Map<String, dynamic>)['locator'] == locator,
+          ) as Map<String, dynamic>;
+
+      expect(rowOf('csrss.exe')['known_component'], 'Windows 系统组件');
+      expect(rowOf('csrss.exe')['needs_review'], isFalse);
+      expect(rowOf('iGoSwServer.exe')['known_component'], isNull);
+      expect(rowOf('iGoSwServer.exe')['needs_review'], isTrue);
     });
 
     test('日志与报告同样脱敏 —— 它一样会离开这台机器', () async {

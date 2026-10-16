@@ -66,6 +66,19 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// 读 rules.json 的 known_components 段：未覆盖条目的名字对照清单。
+  /// 读不出来不算错误 —— 与白名单同一策略，少一份分诊清单只会让列表更长。
+  KnownComponents _knownComponents() {
+    try {
+      final Map<String, dynamic> rules = jsonDecode(
+        File(widget.paths.configPath).readAsStringSync(),
+      ) as Map<String, dynamic>;
+      return KnownComponents.fromRules(rules);
+    } catch (_) {
+      return const KnownComponents();
+    }
+  }
+
   Future<void> _runScan() async {
     setState(() {
       _scanning = true;
@@ -79,6 +92,7 @@ class _DashboardPageState extends State<DashboardPage> {
       final Orchestrator orchestrator = Orchestrator(
         source,
         userAllowlist: widget.userAllowlist,
+        knownComponents: _knownComponents(),
       );
       await orchestrator.scan((String surface, int index, int total) {
         if (!mounted) {
@@ -208,6 +222,8 @@ class _DashboardPageState extends State<DashboardPage> {
     final List<Finding> visible = <Finding>[];
     final Map<String, int> hitCounts = <String, int>{};
     final Map<String, int> uncoveredCounts = <String, int>{};
+    int knownTotal = 0;
+    int unidentifiedTotal = 0;
 
     if (orchestrator != null) {
       for (final Finding f in orchestrator.visibleFindings) {
@@ -218,6 +234,9 @@ class _DashboardPageState extends State<DashboardPage> {
           uncoveredCounts[f.surface] = (uncoveredCounts[f.surface] ?? 0) + 1;
         }
       }
+      // 分诊计数：未覆盖里哪些名字已对照上、哪几条对不上（那几条才要人看）。
+      knownTotal = knownCountOf(orchestrator.result.findings);
+      unidentifiedTotal = unidentifiedCountOf(orchestrator.result.findings);
       visible.addAll(
         _selectedSurface == null
             ? orchestrator.visibleFindings
@@ -253,6 +272,8 @@ class _DashboardPageState extends State<DashboardPage> {
                         0,
                         (int sum, int n) => sum + n,
                       ),
+                      knownCount: knownTotal,
+                      unidentifiedCount: unidentifiedTotal,
                       elevateAttempted: widget.elevateAttempted,
                       onElevate: widget.onElevate,
                     ),

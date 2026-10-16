@@ -47,5 +47,87 @@
     "dllhost.exe",
     "spoolsv.exe",
     "taskhostw.exe"
-  ]
+  ],
+
+  "_known_components_note": "未覆盖条目的自动对照清单（界面 / 日志 / CLI 共用同一份）。只按**名字**比对：未覆盖条目恰恰是路径读不到的那些，拿不到路径、签名或哈希。所以命中只用于分诊排序 —— 绝不隐藏条目、绝不改变「未覆盖 = 没看」的判定，文案也必须写明「仅名字比对」。",
+  "_known_components_provenance": "windows.* 均为微软自带组件。其中多数名字来自 2026-10-15（28 进程 + 12 驱动）与 2026-10-16（26 进程 + 12 驱动）两次真机提权扫描实测的未覆盖名单，其余按微软组件名补全。vendor.* 是已识别的第三方组件，带厂商归属。查不到可靠归属的（如 iGoSwServer.exe）故意不收录 —— 它们就该留在「待人工核实」里，那正是需要人看一眼的信号。",
+  "known_components": {
+    "windows": {
+      "processes": [
+        "System",
+        "[System Process]",
+        "Secure System",
+        "Registry",
+        "Memory Compression",
+        "smss.exe",
+        "csrss.exe",
+        "wininit.exe",
+        "winlogon.exe",
+        "services.exe",
+        "lsass.exe",
+        "LsaIso.exe",
+        "NgcIso.exe",
+        "svchost.exe",
+        "dwm.exe",
+        "fontdrvhost.exe",
+        "WUDFHost.exe",
+        "WUDFCompanionHost.exe",
+        "conhost.exe",
+        "sihost.exe",
+        "dllhost.exe",
+        "spoolsv.exe",
+        "taskhostw.exe",
+        "ctfmon.exe",
+        "ChsIME.exe",
+        "AggregatorHost.exe",
+        "dasHost.exe",
+        "WmiPrvSE.exe",
+        "unsecapp.exe",
+        "wlanext.exe",
+        "SearchFilterHost.exe",
+        "MoUsoCoreWorker.exe",
+        "vmwp.exe",
+        "vmmem",
+        "vmmemWSA",
+        "vmmemWSL",
+        "MsMpEng.exe",
+        "SecurityHealthService.exe",
+        "wslservice.exe",
+        "vmcompute.exe",
+        "audiodg.exe"
+      ],
+      "drivers": [
+        "Beep",
+        "CimFS",
+        "exfat",
+        "fastfat",
+        "Msfs",
+        "MsRPC",
+        "Npfs",
+        "Ntfs",
+        "Null",
+        "ReFS",
+        "ReFSv1",
+        "Wof",
+        "FileCrypt",
+        "Monitor",
+        "Disk",
+        "partmgr",
+        "volmgr",
+        "volsnap",
+        "FLTMGR",
+        "kbdclass",
+        "mouclass",
+        "cdrom"
+      ],
+      "services": []
+    },
+    "vendor": {
+      "processes": {
+        "PresentMonService.exe": "Intel PresentMon（性能监测）",
+        "IntelGraphicsSoftware.Service.Graphics.exe": "Intel 显卡组件"
+      },
+      "services": {}
+    }
+  }
 }

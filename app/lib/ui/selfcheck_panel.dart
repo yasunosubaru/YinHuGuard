@@ -25,6 +25,11 @@ class SelfCheckPanel extends StatelessWidget {
   /// 而某一条具体项读不出来时那是发现级的证据，聚合数字上看不出来。
   final int uncoveredCount;
 
+  /// 未覆盖里已对照上已知组件的条数 / 没能对照上、需人工核实的条数。
+  /// 分诊摘要用；两者都为 0 时不显示摘要（清单缺失时不该显示「已对照 0 条」）。
+  final int knownCount;
+  final int unidentifiedCount;
+
   final bool elevateAttempted;
   final VoidCallback? onElevate;
 
@@ -32,6 +37,8 @@ class SelfCheckPanel extends StatelessWidget {
     super.key,
     required this.selfCheck,
     this.uncoveredCount = 0,
+    this.knownCount = 0,
+    this.unidentifiedCount = 0,
     this.elevateAttempted = false,
     this.onElevate,
   });
@@ -97,6 +104,18 @@ class SelfCheckPanel extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 2),
                 child: Text(
                   '扫描期退出/受保护：${check.residualGaps} 个（正常）',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
+                ),
+              ),
+            // 未覆盖的规模与分诊结果。**中性色**：这一行不是警告，是
+            // 「哪几条要人看」的指针；真正需要人看的那条在列表里自带红色标记。
+            if (uncoveredCount > 0 && knownCount > 0 && check.elevated)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  kUncoveredTriage(uncoveredCount, knownCount, unidentifiedCount),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.outline,
                   ),

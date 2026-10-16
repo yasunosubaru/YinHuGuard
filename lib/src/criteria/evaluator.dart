@@ -9,6 +9,7 @@
 
 import '../model/finding.dart';
 import '../model/observation.dart';
+import '../triage/known_components.dart';
 
 /// 取路径的最后一段（同时接受 `\` 和 `/`）。
 String basenameOf(String path) {
@@ -23,9 +24,13 @@ String basenameOf(String path) {
 /// 换台机器换盘符就不该失效。
 ///
 /// 未覆盖（covered == false）的条目**永不折叠**，也不丢弃。
+///
+/// [knownComponents] 给未覆盖条目做名字对照（分诊用，见
+/// triage/known_components.dart）。它只写进 [Finding.known]，不参与任何判定。
 List<Finding> evaluate(
   List<Observation> observations, {
   required List<String> userAllowlist,
+  KnownComponents knownComponents = const KnownComponents(),
 }) {
   final Set<String> allow = <String>{
     for (final String entry in userAllowlist) entry.toLowerCase(),
@@ -37,6 +42,18 @@ List<Finding> evaluate(
         observation,
         allowlisted: observation.covered &&
             allow.contains(basenameOf(observation.locator).toLowerCase()),
+        // 未覆盖条目才对照：已覆盖的条目路径都读到了，判据已经给过答案，
+        // 再贴一个「名字眼熟」只会稀释真正的信号。
+        known: observation.covered
+            ? null
+            : knownComponents.lookup(
+                  observation.surface,
+                  observation.displayName,
+                ) ??
+                knownComponents.lookup(
+                  observation.surface,
+                  observation.locator,
+                ),
         // 三个占位字段一期恒为 null，显式写出来是为了让二期改动点只有一个。
         confidence: null,
         suggestedAction: null,
@@ -45,6 +62,17 @@ List<Finding> evaluate(
   ];
 }
 
-/// 未覆盖的条目数。界面与报告都要以它为准说明「这次没看到什么」。
+/// 未覆盖条目数。界面与报告都要以它为准说明「这次没看到什么」。
 int uncoveredCountOf(List<Finding> findings) =>
     findings.where((Finding f) => !f.covered).length;
+
+/// 未覆盖条目里已对照上已知组件的条数。
+int knownCountOf(List<Finding> findings) =>
+    findings.where((Finding f) => !f.covered && f.known != null).length;
+
+/// 未覆盖条目里没能对照上、需要人看一眼的条数。
+///
+/// 这是整份报告里**唯一**值得优先读的数字：其余未覆盖都已经能给出名字层面的
+/// 解释，只有这些连名字都对不上。
+int unidentifiedCountOf(List<Finding> findings) =>
+    findings.where((Finding f) => !f.covered && f.known == null).length;

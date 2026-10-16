@@ -1,0 +1,66 @@
+{
+  "_note": "已提权 + 仍有未覆盖条目的样本，按 2026-10-16 07:59:55 本机真机提权扫描的实际形态构造（那次是 26 条进程 + 12 条驱动）。这里只取 4 条代表：1 条 Windows 系统组件、1 条已识别第三方、1 条驱动、1 条名字对不上的。用于验证「已提权：能检查的都已检查」+ 未覆盖分诊（3 已对照 / 1 待核实）这条链路 —— GUI、日志、CLI 三个渠道共用同一份数据。iGoSwServer.exe 是那次实测里唯一没能在清单里归类的名字，故意保持不变。",
+  "_derived_from": "2026-10-16 07:59:55 提权扫描日志：545 进程 / 177 可见 Session 0 / 359 服务；26 进程 + 12 驱动未覆盖，其中 iGoSwServer.exe 未能对照",
+  "self_check": {
+    "elevated": true,
+    "process_total": 545,
+    "process_path_resolved": 523,
+    "session0_visible": 177,
+    "services_total": 359,
+    "services_with_path": 359,
+    "process_unresolved_permission": 22,
+    "process_unresolved_other": 0,
+    "services_unresolved_permission": 0,
+    "services_unresolved_other": 0
+  },
+  "observations": [
+    {
+      "surface": "processes",
+      "locator": "csrss.exe",
+      "display_name": "csrss.exe",
+      "criteria": "file_attr_hs",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": true,
+      "covered": false,
+      "timestamp": 1792166400.0
+    },
+    {
+      "surface": "processes",
+      "locator": "PresentMonService.exe",
+      "display_name": "PresentMonService.exe",
+      "criteria": "file_attr_hs",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": true,
+      "covered": false,
+      "timestamp": 1792166401.0
+    },
+    {
+      "surface": "drivers",
+      "locator": "Ntfs",
+      "display_name": "Ntfs",
+      "criteria": "path_heuristic",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": false,
+      "covered": false,
+      "timestamp": 1792166402.0
+    },
+    {
+      "surface": "processes",
+      "locator": "iGoSwServer.exe",
+      "display_name": "iGoSwServer.exe",
+      "criteria": "file_attr_hs",
+      "attributes_verified": false,
+      "hidden": false,
+      "system": false,
+      "elevation_required": true,
+      "covered": false,
+      "timestamp": 1792166403.0
+    }
+  ]
+}

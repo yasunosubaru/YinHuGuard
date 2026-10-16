@@ -50,6 +50,7 @@ Future<int> runHeadlessScan(AppArgs args, String? jsonOutPath) async {
   final Orchestrator orchestrator = Orchestrator(
     source,
     userAllowlist: _allowlistFromConfig(paths.configPath),
+    knownComponents: _knownComponentsFromConfig(paths.configPath),
   );
 
   try {
@@ -125,12 +126,35 @@ String _summary(ScanResult result, String jsonPath, String logPath) {
     out.writeln('（另有 ${result.selfCheck.residualGaps} 个进程/服务在扫描期间退出或受保护，'
         '属正常现象，不影响结论。）');
   }
+  // 未覆盖的分诊：命令行也要回答「这几十条里哪几条需要人看」。
+  // **只在已提权时给** —— 未提权时读不到的原因就是没提权，把上百条无辜的
+  // 第三方服务进程列成「建议人工核实」是噪声，不是线索。
+  if (result.selfCheck.elevated && uncovered > 0) {
+    final int known = knownCountOf(result.findings);
+    if (known > 0) {
+      final int unidentified = unidentifiedCountOf(result.findings);
+      out.writeln('（未覆盖 $uncovered 条：已对照已知组件 $known 条，'
+          '待人工核实 $unidentified 条。）');
+    }
+    final List<String> unknownNames = <String>[
+      for (final Finding f in result.findings)
+        if (!f.covered && f.known == null) f.locator,
+    ];
+    if (unknownNames.isNotEmpty) {
+      out.writeln('!! 建议人工核实：${unknownNames.join('、')}');
+    }
+  }
   for (final Finding f in result.findings) {
     final String flags = <String>[
       f.surface,
       f.criteria,
       if (!f.covered) 'UNCOVERED' else 'covered',
       if (f.allowlisted) 'allowlisted',
+      // 与日志同一套标记：known-* 是名字眼熟，unidentified 是要人看的。
+      // 只在已提权时标（未提权时读不到的原因是权限，不是身份）。
+      if (result.selfCheck.elevated && !f.covered && f.known == null) 'unidentified',
+      if (result.selfCheck.elevated && !f.covered && f.known != null)
+        f.known!.isWindows ? 'known-windows' : 'known-vendor',
     ].join(' ');
     out.writeln('[$flags] ${f.locator}');
   }
@@ -178,6 +202,18 @@ List<String> _allowlistFromConfig(String configPath) {
     // 白名单读不出来只会让列表更长，不会让结论变错，不必因此失败。
   }
   return const <String>[];
+}
+
+/// 读 rules.json 的 known_components 段：未覆盖条目的名字对照清单。
+/// 读不出来只让列表更长，不让结论变错 —— 与 process_allowlist 同一策略。
+KnownComponents _knownComponentsFromConfig(String configPath) {
+  try {
+    final Map<String, dynamic> rules =
+        jsonDecode(File(configPath).readAsStringSync()) as Map<String, dynamic>;
+    return KnownComponents.fromRules(rules);
+  } catch (_) {
+    return const KnownComponents();
+  }
 }
 
 String _userName() => Platform.environment['USERNAME'] ?? '';

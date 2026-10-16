@@ -239,7 +239,11 @@ class Finding {
     "System", "smss.exe", "csrss.exe", "wininit.exe", "winlogon.exe",
     "services.exe", "lsass.exe", "svchost.exe", "dwm.exe", "conhost.exe",
     "sihost.exe", "dllhost.exe", "spoolsv.exe", "taskhostw.exe"
-  ]
+  ],
+  "known_components": {
+    "windows": { "processes": ["csrss.exe", "..."], "drivers": ["Ntfs", "..."], "services": [] },
+    "vendor": { "processes": { "PresentMonService.exe": "Intel PresentMon（性能监测）" }, "services": {} }
+  }
 }
 ```
 
@@ -248,6 +252,8 @@ class Finding {
 > 为什么给 `service_interpreter_keywords` 加下限：留空数组能通过「是字符串数组」的检查，但会让 `service_interpreter` 判据整体静默失效——界面上表现为「一条可疑服务都没有」，而原因只是有人把数组清空了。这与「绝不用空结果冒充干净」是同一类失败，必须在加载时就拒绝。
 
 `hard_allowlist` 的语义是**只增不减**：引擎在 C++ 内硬编码 `swprv`、`vmservice`、`MicrosoftSoftware2ShadowCop4yProvider` 作为不可下调的地板，配置文件提供的同名数组与之**取并集**。把手工编辑后的 `hard_allowlist` 清空或删项，不会让这三个名字重新变得可报。依据见 §2 硬约束 2。
+
+`known_components` 是**分诊清单**，不是白名单（§13.5）。它只用于给未覆盖条目加标注，三条自我约束写在这里免得日后被改坏：**一、只按名字比对**——未覆盖条目恰恰是路径读不到的那些，拿不到路径、签名、哈希，所以命中一律说成「已对照、名字眼熟」，绝不等于安全；**二、不放行**——`covered` 不变、条目不折叠、判定不变（这与 `process_allowlist` 的区别在于后者折叠的是已确认读通的条目）；**三、宁缺勿滥**——查不到可靠归属的名字不收，让它留在「待人工核实」。引擎对未知键走 `SkipValue`，故新增此段不需要改 C++。
 
 ---
 
@@ -408,3 +414,27 @@ GUI 为主，exe 支持 `--scan`（扫描并打印）与 `--json <路径>`（导
   含真实扫描日志与本机路径）。
 - 真机首跑（2026-10-15）数据：进程 639–714、服务 361、驱动 492、计划任务 101、
   发现合计 752–842、未覆盖 40（28 系统保护进程 + 12 驱动）、残留 51。
+
+### 13.5 未覆盖条目的自动对照（2026-10-16，第二次用户反馈）
+
+用户第二条反馈：「还是有未覆盖的 26 项和 12 项啊」。数字消不掉 —— 一次真机提权
+扫描必然有几十条读不到；缺的是「这几十条里哪几条要人看一眼」。
+
+- **数据**：`rules.json` 新增 `known_components`（§8）。名字取自 2026-10-15 与
+  10-16 两次真机提权扫描实测的未覆盖名单（28/26 进程 + 12 驱动）加微软组件名
+  补全；`vendor.*` 带厂商归属，如 Intel PresentMon。查不到可靠归属的名字
+  （`iGoSwServer.exe`）**故意不收**。
+- **对照在发现层完成**：`evaluate()` 给未覆盖条目填 `Finding.known`
+  （`windows` / `vendor` / 空=待核实），一处计算、四处消费：界面行标记 +
+  自检面板分诊摘要、日志「未覆盖汇总」+ 逐条「对照: …」行 + 行内 flag
+  （`known-windows` / `known-vendor` / `unidentified`）、CLI 摘要、
+  JSON 报告的 `known_component` / `needs_review` / `uncovered_*_count`。
+- **只在已提权视图显示**。未提权时读不到的原因就是没提权：实测非提权扫描
+  117 条未覆盖里绝大多数是无辜的第三方服务进程，把它们标成「待人工核实」
+  是噪声而不是线索。
+- **不改变判定**：命中不放行、不折叠、`covered` 不变；文案一律带「仅名字比对，
+  无法进一步验证」。
+- **实测**：38 条未覆盖 → 35 条 Windows 组件 + 2 条已识别第三方 +
+  **1 条待人工核实**（`iGoSwServer.exe`）。
+- 新 fixture `fixtures/elevated_uncovered_sample.json`；回归测试
+  `test/known_components_test.dart` 固化真机 38 条名单的分类结果。

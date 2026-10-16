@@ -151,6 +151,31 @@ const String kUncoveredProtected =
 /// 已提权、非权限类：对象没有映像文件（伪进程）或数据确实读不出。
 const String kUncoveredNoEvidence = '无法读取该条目的证据（对象没有映像文件或数据不可读）。';
 
+// ---- 未覆盖条目的自动对照（只按名字比对，见 rules.json 的 known_components）----
+//
+// 三句话都必须保留免责表达：命中不是放行（名字可以被伪装），未命中也不是有罪
+// —— 工具手里只有名字，说不了更多。把「已对照」说成「确认安全」会直接推翻
+// 整个工具的可信度。
+
+const String kKnownWindowsBadge = '已知系统组件';
+const String kKnownVendorBadge = '已知第三方组件';
+const String kUnidentifiedBadge = '待人工核实';
+
+const String kKnownWindowsNote =
+    '读不到是系统保护或扫描瞬间退出所致；名字已对照已知的 Windows 系统组件'
+    '（仅名字比对，路径读不到，无法进一步验证）。';
+
+const String kKnownVendorNote =
+    '读不到是系统保护或扫描瞬间退出所致；名字已对照已识别的第三方组件'
+    '（仅名字比对，无法进一步验证）。';
+
+const String kUnidentifiedNote = '不在已知组件清单里 —— 建议人工核实这一条。';
+
+/// 自检面板里的一行分诊摘要。数字不是问题，「看不出哪条要人看」才是。
+String kUncoveredTriage(int total, int identified, int unidentified) =>
+    '未覆盖 $total 条：已对照已知组件 $identified 条，'
+    '待人工核实 $unidentified 条（明细见下方列表）';
+
 const String kColumnLocator = '位置';
 const String kColumnDisplayName = '具体对象';
 const String kColumnCriteria = '判据';

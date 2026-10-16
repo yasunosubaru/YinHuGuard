@@ -14,6 +14,7 @@ import '../model/finding.dart';
 import '../model/observation.dart';
 import '../model/self_check.dart';
 import '../source/observation_source.dart';
+import '../triage/known_components.dart';
 
 /// 扫描面的固定顺序。
 const List<String> kScanOrder = <String>[
@@ -51,9 +52,17 @@ class Orchestrator {
   /// 用户白名单（rules.json 的 process_allowlist 与用户后来加的合并后传进来）。
   final List<String> userAllowlist;
 
+  /// 未覆盖条目的自动对照清单（rules.json 的 known_components 段）。
+  /// 只做名字层面的分诊，见 triage/known_components.dart。
+  final KnownComponents knownComponents;
+
   ScanResult? _result;
 
-  Orchestrator(this.source, {this.userAllowlist = const <String>[]});
+  Orchestrator(
+    this.source, {
+    this.userAllowlist = const <String>[],
+    this.knownComponents = const KnownComponents(),
+  });
 
   ScanResult get result {
     final ScanResult? snapshot = _result;
@@ -93,7 +102,11 @@ class Orchestrator {
 
     _result = ScanResult(
       selfCheck: selfCheck,
-      findings: evaluate(observations, userAllowlist: userAllowlist),
+      findings: evaluate(
+        observations,
+        userAllowlist: userAllowlist,
+        knownComponents: knownComponents,
+      ),
       startedAt: startedAt,
       finishedAt: DateTime.now().toUtc(),
     );

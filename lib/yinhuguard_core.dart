@@ -20,3 +20,4 @@ export 'src/scan/orchestrator.dart';
 export 'src/source/engine_observation_source.dart';
 export 'src/source/fixture_observation_source.dart';
 export 'src/source/observation_source.dart';
+export 'src/triage/known_components.dart';

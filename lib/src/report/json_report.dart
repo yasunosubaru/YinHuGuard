@@ -10,6 +10,7 @@
 
 import 'dart:convert';
 
+import '../criteria/evaluator.dart';
 import '../criteria/redact.dart';
 import '../model/finding.dart';
 import '../scan/orchestrator.dart';
@@ -41,6 +42,11 @@ String toJsonReport(
       'covered': f.covered,
       'elevation_required': f.elevationRequired,
       'allowlisted': f.allowlisted,
+      // 名字对照结果（只按名字，见 triage/known_components.dart）：
+      // null 表示不在已知清单里 —— 那些条目才是要人看的。这里刻意与
+      // covered / elevation_required 分开：命中不代表安全，也不改判定。
+      'known_component': f.covered || f.known == null ? null : f.known!.label,
+      'needs_review': !f.covered && f.known == null,
       'timestamp': f.timestamp.toIso8601String(),
       // 二期占位字段：一期恒为 null，但键**必须存在**，
       // 这样二期填值不会让报告格式变化。
@@ -59,6 +65,9 @@ String toJsonReport(
     // 名字刻意不叫 covered_count：读者需要的是「有多少条没看」，而不是
     // 「有多少条看到了」——后者在干净机器上恒等于发现总数，不加信息量。
     'uncovered_count': uncovered,
+    // 未覆盖的分诊：几十条里已对照上已知组件多少条、还剩下几条要人看。
+    'uncovered_known_count': knownCountOf(result.findings),
+    'uncovered_unidentified_count': unidentifiedCountOf(result.findings),
     'findings': findings,
   };
 
