@@ -13,3 +13,6 @@ build/
 dist/
 app/build/
 
+# 本地一次性验证脚本（_ 前缀，不进仓库；见 CHANGELOG「公开发布」）
+tool/_*.dart
+
